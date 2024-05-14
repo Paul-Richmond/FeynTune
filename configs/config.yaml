@@ -6,7 +6,7 @@ names_cfg:
   # Tokenizer to use
   tokenizer_name: "hf-internal-testing/llama-tokenizer"
   # Base model to fine tune
-  model_name: "meta-llama/Llama-2-7b-hf"
+  model_name: "meta-llama/Meta-Llama-3-8B"
   # Dictionary of values to use in the AdamW optimizer
 optim_cfg:
   betas: !!python/tuple
@@ -29,11 +29,11 @@ lr_schedule_cfg:
 
 training_args_cfg:
   evaluation_strategy: epoch
-  hub_model_id: LLMsForHepth/hepthLlama
+  hub_model_id: LLMsForHepth/hepthLlama3
   hub_private_repo: true
   logging_steps: 1
   max_grad_norm: 1.0
-  output_dir: LLMsForHepth/hepthLlama
+  output_dir: LLMsForHepth/hepthLlama3
   per_device_train_batch_size: 32
   push_to_hub: true
   report_to: wandb
