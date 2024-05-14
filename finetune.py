@@ -4,7 +4,7 @@ import yaml
 from dotenv import load_dotenv
 import wandb
 import huggingface_hub
-from datasets import load_dataset
+from datasets import load_dataset, DatasetDict
 from transformers import (AutoTokenizer,
                           DataCollatorForLanguageModeling,
                           AutoModelForCausalLM,
@@ -120,8 +120,6 @@ class CustomTrainer(Trainer):
         return (loss, outputs) if return_outputs else loss
 
 
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config",
@@ -140,9 +138,14 @@ if __name__ == "__main__":
 
     # datasets get cached, the default cache directory is ~/.cache/huggingface/datasets
     # the default can be changed through the cache_dir parameter of load_dataset
-    ds = load_dataset(cfg['names_cfg']['dataset_name'])
+    # ds = load_dataset(cfg['names_cfg']['dataset_name'])
+    ds_train, ds_test, ds_valid = load_dataset(cfg['dataset_cfg']['dataset_name'],
+                                               split=[f"train[{cfg['dataset_cfg']['dataset_percent']}]",
+                                                      f"test[{cfg['dataset_cfg']['dataset_percent']}]",
+                                                      f"validation[{cfg['dataset_cfg']['dataset_percent']}]"])
+    ds = DatasetDict({"train": ds_train, "test": ds_test, "validation": ds_valid})
     #
-    tokenizer = AutoTokenizer.from_pretrained(cfg['names_cfg']['tokenizer_name'])
+    tokenizer = AutoTokenizer.from_pretrained(cfg['tokenizer_name'])
     tokenised_ds = ds.map(tokenize_fn,
                           batched=True,
                           remove_columns=ds['train'].column_names)
@@ -162,7 +165,7 @@ if __name__ == "__main__":
     quant_config = BitsAndBytesConfig(**cfg['bnb_cfg'])
     lora_config = LoraConfig(**cfg['lora_cfg'])
 
-    foundation_model = AutoModelForCausalLM.from_pretrained(cfg['names_cfg']['model_name'],
+    foundation_model = AutoModelForCausalLM.from_pretrained(cfg['model_name'],
                                                             device_map="auto",
                                                             quantization_config=quant_config,
                                                             trust_remote_code=True,
