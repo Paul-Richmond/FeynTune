@@ -15,7 +15,7 @@ from transformers import (AutoTokenizer,
                           AdamW)
 import torch
 import torch.nn.functional as F
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
 
 def num_gpus():
@@ -121,6 +121,8 @@ class CustomTrainer(Trainer):
 
 
 if __name__ == "__main__":
+    print(f'Using {num_gpus()} GPUs')
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config",
                         help="Filepath for config file", required=True)
@@ -169,9 +171,11 @@ if __name__ == "__main__":
                                                             device_map="auto",
                                                             quantization_config=quant_config,
                                                             trust_remote_code=True,
+                                                            attn_implementation=cfg['attn_implementation']
                                                             )
-
+    model = prepare_model_for_kbit_training(foundation_model)
     model = get_peft_model(foundation_model, lora_config)
+    model.print_trainable_parameters()
 
     optimizer = AdamW(model.parameters(), **cfg['optim_cfg'])
     lr_schedule = get_cosine_schedule_with_warmup(optimizer, **cfg['lr_schedule_cfg'])
