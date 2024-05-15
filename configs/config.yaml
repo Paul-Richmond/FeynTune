@@ -41,7 +41,7 @@ training_args_cfg:
 
 # Dictionary of values to use setting up model quantization QLoRA
 # see https://huggingface.co/docs/transformers/v4.40.1/en/main_classes/quantization#transformers.BitsAndBytesConfig
-bnb_config:
+bnb_cfg:
   bnb_4bit_compute_dtype: float16
   bnb_4bit_quant_storage: null
   bnb_4bit_quant_type: nf4
@@ -49,7 +49,7 @@ bnb_config:
   load_in_4bit: true
 
 # Dictionary of values to use setting up LoRA
-lora_config:
+lora_cfg:
   bias: none
   lora_alpha: 32
   lora_dropout: 0.05
