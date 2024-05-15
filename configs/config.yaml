@@ -3,6 +3,8 @@ tokenizer_name: "meta-llama/Meta-Llama-3-8B"
 # Base model to fine tune
 model_name: "meta-llama/Meta-Llama-3-8B"
   # Dictionary of values to use in the AdamW optimizer
+attn_implementation:
+  flash_attention_2
 dataset_cfg:
   # Dataset name
   dataset_name: "LLMsForHepth/arxiv_hepth_first"
@@ -33,16 +35,16 @@ training_args_cfg:
   hub_private_repo: true
   logging_steps: 1
   max_grad_norm: 1.0
-  output_dir: LLMsForHepth/hepthLlama3
-  per_device_train_batch_size: 32
+  output_dir: hf
+  per_device_train_batch_size: 4
   push_to_hub: true
   report_to: wandb
-  run_name: Sulis_test
+  run_name: apocrita_test
 
 # Dictionary of values to use setting up model quantization QLoRA
 # see https://huggingface.co/docs/transformers/v4.40.1/en/main_classes/quantization#transformers.BitsAndBytesConfig
 bnb_cfg:
-  bnb_4bit_compute_dtype: float16
+  bnb_4bit_compute_dtype: bfloat16
   bnb_4bit_quant_storage: null
   bnb_4bit_quant_type: nf4
   bnb_4bit_use_double_quant: true
@@ -54,14 +56,12 @@ lora_cfg:
   lora_alpha: 32
   lora_dropout: 0.05
   r: 8
-  target_modules:
-    - a_proj
-    - v_proj
-    - k_proj
-    - o_proj
-    - gate_proj
+  target_modules: # choice taken from https://huggingface.co/blog/mlabonne/orpo-llama-3
     - up_proj
     - down_proj
-    - embed_tokens
-    - lm_head
+    - gate_proj
+    - k_proj
+    - q_proj
+    - v_proj
+    - o_proj
   task_type: CAUSAL_LM
