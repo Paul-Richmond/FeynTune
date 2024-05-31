@@ -11,40 +11,10 @@ from transformers import (AutoTokenizer,
                           BitsAndBytesConfig,
                           TrainingArguments,
                           Trainer,
-                          get_cosine_schedule_with_warmup,
-                          AdamW)
+                          )
+from transformers.optimization import get_cosine_with_min_lr_schedule_with_warmup  # needs transformers >= 4.40.0
 import torch
-import torch.nn.functional as F
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-
-
-def num_gpus():
-    """Get the number of available GPUs."""
-    return torch.cuda.device_count()
-
-
-def _get_steps(train_dataset, training_args):
-    """Compute total number of optimization steps during training."""
-    num_devices = num_gpus()
-    bs = training_args.per_device_eval_batch_size * num_devices
-    grad_acc = training_args.gradient_accumulation_steps
-    try:
-        num_of_batches = len(train_dataset) / (bs * grad_acc)
-    except ZeroDivisionError:
-        num_of_batches = len(train_dataset)
-    epochs = training_args.num_train_epochs
-    return int(num_of_batches * epochs)
-
-
-def update_lr_schedule_cfg(cfg, train_dataset, training_args):
-    """Update lr_schedule_cfg with computed values for
-    num_warmup_steps and num_training_steps."""
-    max_steps = _get_steps(train_dataset, training_args)
-    w_steps = int(max_steps * cfg['lr_schedule_cfg']['warmup_ratio'])
-    cfg['lr_schedule_cfg'] = {"num_warmup_steps": w_steps,
-                              "num_training_steps": max_steps,
-                              "num_cycles": cfg['lr_schedule_cfg']['num_cycles']
-                              }
 
 
 def tokenize_fn(batch):
@@ -70,59 +40,7 @@ def group_abstracts(examples):
     return result
 
 
-def compute_metrics(eval_pred):
-    """Computes the perplexity metric"""
-    logits = torch.from_numpy(eval_pred.predictions)
-    labels = torch.from_numpy(eval_pred.label_ids)
-    loss = F.cross_entropy(logits, labels)
-    return {'perplexity': torch.exp(loss), 'calculated_loss': loss}
-
-
-class CustomTrainer(Trainer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def compute_loss(self, model, inputs, return_outputs=False):
-        """
-        PR: Subclassed to compute training perplexity.
-
-        How the loss is computed by Trainer. By default, all models return the loss in
-        the first element.
-
-        Subclass and override for custom behavior.
-        """
-
-        if self.label_smoother is not None and "labels" in inputs:
-            labels = inputs.pop("labels")
-        else:
-            labels = None
-        outputs = model(**inputs)
-
-        # Save past state if it exists
-        # TODO: this needs to be fixed and made cleaner later.
-        if self.args.past_index >= 0:
-            self._past = outputs[self.args.past_index]
-
-        if labels is not None:
-            loss = self.label_smoother(outputs, labels)
-        else:
-            # We don't use .loss here since the model may return tuples instead of
-            # ModelOutput.
-            loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
-
-        # -------------
-        # PR: Added following lines to log perplexity
-        perp_loss = loss.detach()
-        perplexity = torch.exp(perp_loss).item()  # return as number for json serialising
-        self.log({"perplexity": perplexity})
-        # -------------
-
-        return (loss, outputs) if return_outputs else loss
-
-
 if __name__ == "__main__":
-    print(f'Using {num_gpus()} GPUs')
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config",
                         help="Filepath for config file", required=True)
@@ -147,7 +65,7 @@ if __name__ == "__main__":
                                                       f"validation[{cfg['dataset_cfg']['dataset_percent']}]"])
     ds = DatasetDict({"train": ds_train, "test": ds_test, "validation": ds_valid})
     #
-    tokenizer = AutoTokenizer.from_pretrained(cfg['tokenizer_name'])
+    tokenizer = AutoTokenizer.from_pretrained(cfg['model_name'])
     tokenised_ds = ds.map(tokenize_fn,
                           batched=True,
                           remove_columns=ds['train'].column_names)
@@ -155,6 +73,7 @@ if __name__ == "__main__":
     lm_dataset = tokenised_ds.map(group_abstracts, batched=True)
 
     # see: https://huggingface.co/docs/transformers/v4.40.1/en/main_classes/data_collator#transformers.DataCollatorForLanguageModeling
+    # and: https://huggingface.co/docs/transformers/v4.40.1/en/tasks/language_modeling#preprocess
     tokenizer.pad_token = tokenizer.eos_token
     # Data collator used for language modeling.
     # Inputs are dynamically padded to the maximum length of a batch if they are
@@ -162,7 +81,6 @@ if __name__ == "__main__":
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
     training_args = TrainingArguments(**cfg['training_args_cfg'])
-    update_lr_schedule_cfg(cfg, lm_dataset['train'], training_args)
 
     quant_config = BitsAndBytesConfig(**cfg['bnb_cfg'])
     lora_config = LoraConfig(**cfg['lora_cfg'])
@@ -174,22 +92,29 @@ if __name__ == "__main__":
                                                             attn_implementation=cfg['attn_implementation']
                                                             )
     model = prepare_model_for_kbit_training(foundation_model)
-    model = get_peft_model(foundation_model, lora_config)
-    model.print_trainable_parameters()
+    model = get_peft_model(model, lora_config)
 
-    optimizer = AdamW(model.parameters(), **cfg['optim_cfg'])
-    lr_schedule = get_cosine_schedule_with_warmup(optimizer, **cfg['lr_schedule_cfg'])
+    optimizer = torch.optim.AdamW(model.parameters(), **cfg['optim_cfg'])
+    lr_schedule = get_cosine_with_min_lr_schedule_with_warmup(optimizer, **cfg['lr_schedule_cfg'])
 
-    trainer = CustomTrainer(model=model,
-                            args=training_args,
-                            train_dataset=lm_dataset['train'],
-                            eval_dataset=lm_dataset['test'],
-                            data_collator=data_collator,
-                            compute_metrics=compute_metrics,
-                            optimizers=(optimizer, lr_schedule)
-                            )
+    trainer = Trainer(model=model,
+                      args=training_args,
+                      train_dataset=lm_dataset['train'],
+                      eval_dataset=lm_dataset['test'],
+                      data_collator=data_collator,
+                      optimizers=(optimizer, lr_schedule)
+                      )
 
-    trainer.train()
+    train_result = trainer.train()
+
+    metrics = train_result.metrics
+    trainer.log_metrics("train", metrics)
+    trainer.save_metrics("train", metrics)
+
+    metrics = trainer.evaluate()
+    trainer.log_metrics("eval", metrics)
+    trainer.save_metrics("eval", metrics)
+
     # following training, we push the fine-tuned model to Huggingface
     trainer.push_to_hub()
     wandb.finish()

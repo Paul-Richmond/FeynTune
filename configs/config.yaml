@@ -1,45 +1,51 @@
-# Tokenizer to use
-tokenizer_name: "meta-llama/Meta-Llama-3-8B"
 # Base model to fine tune
 model_name: "meta-llama/Meta-Llama-3-8B"
-  # Dictionary of values to use in the AdamW optimizer
+# what attention to use
 attn_implementation:
   flash_attention_2
 dataset_cfg:
   # Dataset name
   dataset_name: "LLMsForHepth/arxiv_hepth_first"
-  #
-  dataset_percent: ":15%"
+  # What percentage of the train/test/validation datasets to load
+  dataset_percent: ":4%"
+# Dictionary of values to use in the torch.optim.Adam optimizer
 optim_cfg:
   betas: !!python/tuple
     - 0.9
     - 0.95
-  correct_bias: true
   eps: 1.0e-05
   lr: 0.0003
-  no_deprecation_warning: false
   weight_decay: 0.1
 
 lr_schedule_cfg:
-# Linear warmup peaks after 10% of optimization steps
-  warmup_ratio: 0.1
-# Looking at the get_cosine_schedule_with_warmup source code
-# it returns max(0.0, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
-# if we want to achieve 10% of the learning rate on the final step
-# then num_cycles = 0.397584 (from Mathematica)
-  num_cycles: 0.397584
+  # The number of steps for the warmup phase.
+  num_warmup_steps: 6
+  # The total number of training steps.
+  num_training_steps: 62
+  # The number of waves in the cosine schedule (the defaults is to just decrease from the max value to 0 following a half-cosine).
+  num_cycles: 0.5
+  # The index of the last epoch when resuming training. Default is -1
+  last_epoch: -1
+  # The minimum learning rate to reach after the cosine schedule.
+#  min_lr: none
+  # The minimum learning rate as a ratio of the initial learning rate. If set, `min_lr` should not be set.
+  min_lr_rate: 0.1
 
+# Dictionary of values to use in Trainer class
 training_args_cfg:
+  num_train_epochs: 2
   evaluation_strategy: epoch
+  log_level: info
   hub_model_id: LLMsForHepth/hepthLlama3
   hub_private_repo: true
   logging_steps: 1
   max_grad_norm: 1.0
   output_dir: hf
-  per_device_train_batch_size: 4
-  push_to_hub: true
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 32
+  push_to_hub: false
   report_to: wandb
-  run_name: apocrita_test
+  run_name: replace
 
 # Dictionary of values to use setting up model quantization QLoRA
 # see https://huggingface.co/docs/transformers/v4.40.1/en/main_classes/quantization#transformers.BitsAndBytesConfig
