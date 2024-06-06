@@ -42,6 +42,20 @@ def group_abstracts(examples):
     return result
 
 
+def compute_optimization_steps(trainer):
+    """Computes the number of optimization steps required to train the model.
+
+    Essentially, copies the code to compute max_steps from the _inner_training_loop method of
+    the Trainer class.
+    """
+    train_dataloader = trainer.get_train_dataloader()
+    len_dataloader = len(train_dataloader)
+    num_update_steps_per_epoch = len_dataloader // trainer.args.gradient_accumulation_steps
+    num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1)
+    max_steps = math.ceil(trainer.args.num_train_epochs * num_update_steps_per_epoch)
+    return max_steps
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config",
@@ -96,35 +110,25 @@ if __name__ == "__main__":
     model = prepare_model_for_kbit_training(foundation_model)
     model = get_peft_model(model, lora_config)
 
-    # optimizer = torch.optim.AdamW(model.parameters(), **cfg['optim_cfg'])
-    # lr_schedule = get_cosine_with_min_lr_schedule_with_warmup(optimizer, **cfg['lr_schedule_cfg'])
-
+    # Instantiate a dummy trainer to allow us to compute num_training_steps
     trainer = Trainer(model=model,
                       args=training_args,
                       train_dataset=lm_dataset['train'],
                       eval_dataset=lm_dataset['test'],
                       data_collator=data_collator,
-                      # optimizers=(optimizer, lr_schedule)
                       )
-    # This is a hack to get the total number of training steps
-    train_dataloader = trainer.get_train_dataloader()
-    len_dataloader = len(train_dataloader)
-    num_examples = trainer.num_examples(train_dataloader)
-    gradient_accumulation_steps = trainer.args.gradient_accumulation_steps
-    num_train_epochs = trainer.args.num_train_epochs
-    num_update_steps_per_epoch = len_dataloader // gradient_accumulation_steps
-    max_steps = math.ceil(num_train_epochs * num_update_steps_per_epoch)
 
-    del trainer, train_dataloader
+    num_training_steps = compute_optimization_steps(trainer)
+    del trainer
     gc.collect()
+    # now that we have the number of training steps we can set up the optimzer and learning rate schedule
 
     optimizer = torch.optim.AdamW(model.parameters(), **cfg['optim_cfg'])
     lr_schedule_cfg = cfg['lr_schedule_cfg']
-    lr_schedule_cfg.update({'num_training_steps': max_steps})
-    lr_schedule_cfg.update({'num_warmup_steps': round(0.1 * max_steps)})
+    lr_schedule_cfg.update({'num_training_steps': num_training_steps})
+    lr_schedule_cfg.update({'num_warmup_steps': round(0.1 * num_training_steps)})
 
     lr_schedule = get_cosine_with_min_lr_schedule_with_warmup(optimizer, **lr_schedule_cfg)
-    # End of hack
 
     trainer = Trainer(model=model,
                       args=training_args,
