@@ -17,29 +17,36 @@ import torch
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 import math
 import gc
+from functools import partial
 
 
-def tokenize_fn(batch):
-    return tokenizer(batch['abstract'])
+def tokenize_fn(batch, padding='max_length', max_length=720):
+    """Tokenize a batch and pad each entry to max_length."""
+    return tokenizer(batch['abstract'], padding=padding, max_length=max_length)
 
 
-def group_abstracts(examples):
-    """Concatenates the data and then divides into fixed-length chunks of size 512."""
-    # Concatenate all texts.
-    block_size = 512
-    concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
-    total_length = len(concatenated_examples[list(examples.keys())[0]])
-    # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
-    # customize this part to your needs.
-    if total_length >= block_size:
-        total_length = (total_length // block_size) * block_size
-    # Split by chunks of block_size.
-    result = {
-        k: [t[i: i + block_size] for i in range(0, total_length, block_size)]
-        for k, t in concatenated_examples.items()
-    }
-    result["labels"] = result["input_ids"].copy()
-    return result
+# def group_abstracts(examples):
+#     """Concatenates the data and then divides into fixed-length chunks of size 1024."""
+#     # Concatenate all texts.
+#     block_size = 1024
+#     concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
+#     total_length = len(concatenated_examples[list(examples.keys())[0]])
+#     # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
+#     # customize this part to your needs.
+#     if total_length >= block_size:
+#         total_length = (total_length // block_size) * block_size
+#     # Split by chunks of block_size.
+#     result = {
+#         k: [t[i: i + block_size] for i in range(0, total_length, block_size)]
+#         for k, t in concatenated_examples.items()
+#     }
+#     result["labels"] = result["input_ids"].copy()
+#     return result
+
+
+def create_labels(examples):
+    examples["labels"] = examples["input_ids"].copy()
+    return examples
 
 
 def compute_optimization_steps(trainer):
@@ -82,15 +89,14 @@ if __name__ == "__main__":
     ds = DatasetDict({"train": ds_train, "test": ds_test, "validation": ds_valid})
     #
     tokenizer = AutoTokenizer.from_pretrained(cfg['model_name'])
-    tokenised_ds = ds.map(tokenize_fn,
+    tokenizer.pad_token = tokenizer.eos_token
+    tokenised_ds = ds.map(partial(tokenize_fn, **cfg['tokenizer']),
                           batched=True,
                           remove_columns=ds['train'].column_names)
-    # concatenate the tokenised data and then divide it into chunks
-    lm_dataset = tokenised_ds.map(group_abstracts, batched=True)
+    lm_dataset = tokenised_ds.map(create_labels, batched=True)
 
     # see: https://huggingface.co/docs/transformers/v4.40.1/en/main_classes/data_collator#transformers.DataCollatorForLanguageModeling
     # and: https://huggingface.co/docs/transformers/v4.40.1/en/tasks/language_modeling#preprocess
-    tokenizer.pad_token = tokenizer.eos_token
     # Data collator used for language modeling.
     # Inputs are dynamically padded to the maximum length of a batch if they are
     # not all the same length.
