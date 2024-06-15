@@ -18,9 +18,12 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 import math
 import gc
 from functools import partial
+import hydra
+from omegaconf import DictConfig, OmegaConf
+from hydra.utils import instantiate
 
 
-def tokenize_fn(batch, padding='max_length', max_length=720):
+def tokenize_fn(batch, tokenizer, padding='max_length', max_length=720):
     """Tokenize a batch and pad each entry to max_length."""
     return tokenizer(batch['abstract'], padding=padding, max_length=max_length)
 
@@ -63,34 +66,36 @@ def compute_optimization_steps(trainer):
     return max_steps
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config",
-                        help="Filepath for config file", required=True)
-    filepath = parser.parse_args().config
+@hydra.main(version_base=None, config_path="configs", config_name="default")
+def main(cfg: DictConfig) -> None:
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("-c", "--config",
+    #                     help="Filepath for config file", required=True)
+    # filepath = parser.parse_args().config
 
     load_dotenv()
     HF_TOKEN = os.getenv("HUGGINGFACE_API_KEY")
     WANDB_TOKEN = os.getenv("WANDB_API_KEY")
 
     huggingface_hub.login(token=HF_TOKEN)
-    wandb.login(key=WANDB_TOKEN)
+    # wandb.login(key=WANDB_TOKEN)
 
-    with open(filepath, 'r') as f:
-        cfg = yaml.load(f, Loader=yaml.FullLoader)
+    # with open(filepath, 'r') as f:
+    #     cfg = yaml.load(f, Loader=yaml.FullLoader)
 
     # datasets get cached, the default cache directory is ~/.cache/huggingface/datasets
     # the default can be changed through the cache_dir parameter of load_dataset
     # ds = load_dataset(cfg['names_cfg']['dataset_name'])
-    ds_train, ds_test, ds_valid = load_dataset(cfg['dataset_cfg']['dataset_name'],
-                                               split=[f"train[{cfg['dataset_cfg']['dataset_percent']}]",
-                                                      f"test[{cfg['dataset_cfg']['dataset_percent']}]",
-                                                      f"validation[{cfg['dataset_cfg']['dataset_percent']}]"])
+    ds_train, ds_test, ds_valid = load_dataset(cfg.dataset.name,
+                                               split=[f"train[{cfg.dataset.dataset_percent}]",
+                                                      f"test[{cfg.dataset.dataset_percent}]",
+                                                      f"validation[{cfg.dataset.dataset_percent}]"])
     ds = DatasetDict({"train": ds_train, "test": ds_test, "validation": ds_valid})
     #
-    tokenizer = AutoTokenizer.from_pretrained(cfg['model_name'])
+    tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer.name)
     tokenizer.pad_token = tokenizer.eos_token
-    tokenised_ds = ds.map(partial(tokenize_fn, **cfg['tokenizer']),
+    # tok_fn = partial(tokenize_fn, tokenizer, **cfg.tokenizer.tokenizer_args)
+    tokenised_ds = ds.map(lambda examples: tokenizer(examples["abstract"], **cfg.tokenizer.tokenizer_args),
                           batched=True,
                           remove_columns=ds['train'].column_names)
     lm_dataset = tokenised_ds.map(create_labels, batched=True)
@@ -102,16 +107,16 @@ if __name__ == "__main__":
     # not all the same length.
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
-    training_args = TrainingArguments(**cfg['training_args_cfg'])
+    training_args = TrainingArguments(**cfg.model.training_args_cfg)
 
-    quant_config = BitsAndBytesConfig(**cfg['bnb_cfg'])
-    lora_config = LoraConfig(**cfg['lora_cfg'])
+    quant_config = BitsAndBytesConfig(**cfg.model.bnb_cfg)
+    lora_config = LoraConfig(**cfg.model.lora_cfg)
 
-    foundation_model = AutoModelForCausalLM.from_pretrained(cfg['model_name'],
+    foundation_model = AutoModelForCausalLM.from_pretrained(cfg.model.name,
                                                             device_map="auto",
                                                             quantization_config=quant_config,
                                                             trust_remote_code=True,
-                                                            attn_implementation=cfg['attn_implementation']
+                                                            attn_implementation=cfg.model.attn_implementation
                                                             )
     model = prepare_model_for_kbit_training(foundation_model)
     model = get_peft_model(model, lora_config)
@@ -129,8 +134,8 @@ if __name__ == "__main__":
     gc.collect()
     # now that we have the number of training steps we can set up the optimzer and learning rate schedule
 
-    optimizer = torch.optim.AdamW(model.parameters(), **cfg['optim_cfg'])
-    lr_schedule_cfg = cfg['lr_schedule_cfg']
+    optimizer = torch.optim.AdamW(model.parameters(), **cfg.optimizer.optim_args)
+    lr_schedule_cfg = cfg.lr
     lr_schedule_cfg.update({'num_training_steps': num_training_steps})
     lr_schedule_cfg.update({'num_warmup_steps': round(0.1 * num_training_steps)})
 
@@ -157,3 +162,7 @@ if __name__ == "__main__":
     # following training, we push the fine-tuned model to Huggingface
     trainer.push_to_hub()
     wandb.finish()
+
+
+if __name__ == "__main__":
+    main()

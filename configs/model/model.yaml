@@ -1,20 +1,20 @@
 # Base model to fine tune
-model_name: "meta-llama/Meta-Llama-3-8B"
+name: "meta-llama/Meta-Llama-3-8B"
 # what attention to use
 attn_implementation: "flash_attention_2"
 # Dictionary of values to use in tokenizing the datasets
 
 training_args_cfg:
-  num_train_epochs: 3
+  num_train_epochs: 1
   evaluation_strategy: epoch
   log_level: info
   logging_steps: 1
   max_grad_norm: 1.0
   output_dir: hf
-  per_device_train_batch_size: 32
-  per_device_eval_batch_size: 32
+  per_device_train_batch_size: 8
+  per_device_eval_batch_size: 8
   report_to: wandb
-  run_name: my_first_run  #--------CHANGE ME! CHANGE ME! CHANGE ME!--------
+  run_name: my_first_hydra_run  #--------CHANGE ME! CHANGE ME! CHANGE ME!--------
   hub_model_id: LLMsForHepth/my_first_run  #--------CHANGE ME! CHANGE ME! CHANGE ME!--------
   hub_private_repo: true
   push_to_hub: false
