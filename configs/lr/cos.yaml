@@ -1,0 +1,12 @@
+name: get_cosine_with_min_lr_schedule_with_warmup
+num_warmup_steps: ???
+# The total number of training steps.
+num_training_steps: ???
+# The number of waves in the cosine schedule (the defaults is to just decrease from the max value to 0 following a half-cosine).
+num_cycles: 0.5
+# The index of the last epoch when resuming training. Default is -1
+last_epoch: -1
+# The minimum learning rate to reach after the cosine schedule.
+#  min_lr: none
+# The minimum learning rate as a ratio of the initial learning rate. If set, `min_lr` should not be set.
+min_lr_rate: 0.1

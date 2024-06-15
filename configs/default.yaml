@@ -1,0 +1,6 @@
+defaults:
+  - optimizer: adamw
+  - dataset: small
+  - model: model
+  - tokenizer: tokenizer
+  - lr: cos
