@@ -1,0 +1,3 @@
+name: "meta-llama/Meta-Llama-3-8B"
+padding: "max_length"
+max_length: 720
