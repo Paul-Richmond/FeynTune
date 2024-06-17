@@ -1,4 +1,7 @@
+#lr_schedule_class:
+_target_: transformers.optimization.get_cosine_with_min_lr_schedule_with_warmup
 #name: get_cosine_with_min_lr_schedule_with_warmup
+#lr_schedule_args:
 num_warmup_steps: ???
 # The total number of training steps.
 num_training_steps: ???
