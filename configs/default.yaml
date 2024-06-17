@@ -3,4 +3,4 @@ defaults:
   - dataset: small
   - model: model
   - tokenizer: tokenizer
-  - lr: cosine_with_min_lr_schedule_with_warmup
+  - lr_scheduler: cosine_with_min_lr_schedule_with_warmup
