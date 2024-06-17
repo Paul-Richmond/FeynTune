@@ -1,10 +1,8 @@
 import os
-import argparse
-import yaml
 from dotenv import load_dotenv
 import wandb
 import huggingface_hub
-from datasets import load_dataset, DatasetDict
+from datasets import load_dataset
 from transformers import (AutoTokenizer,
                           DataCollatorForLanguageModeling,
                           AutoModelForCausalLM,
@@ -12,39 +10,13 @@ from transformers import (AutoTokenizer,
                           TrainingArguments,
                           Trainer,
                           )
-# from transformers.optimization import get_cosine_with_min_lr_schedule_with_warmup  # needs transformers >= 4.40.0
 import transformers.optimization
 import torch
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 import math
 import gc
-from functools import partial
 import hydra
 from omegaconf import DictConfig, OmegaConf
-
-
-def tokenize_fn(batch, tokenizer, padding='max_length', max_length=720):
-    """Tokenize a batch and pad each entry to max_length."""
-    return tokenizer(batch['abstract'], padding=padding, max_length=max_length)
-
-
-# def group_abstracts(examples):
-#     """Concatenates the data and then divides into fixed-length chunks of size 1024."""
-#     # Concatenate all texts.
-#     block_size = 1024
-#     concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
-#     total_length = len(concatenated_examples[list(examples.keys())[0]])
-#     # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
-#     # customize this part to your needs.
-#     if total_length >= block_size:
-#         total_length = (total_length // block_size) * block_size
-#     # Split by chunks of block_size.
-#     result = {
-#         k: [t[i: i + block_size] for i in range(0, total_length, block_size)]
-#         for k, t in concatenated_examples.items()
-#     }
-#     result["labels"] = result["input_ids"].copy()
-#     return result
 
 
 def create_labels(examples):
