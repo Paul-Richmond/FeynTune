@@ -4,3 +4,4 @@ defaults:
   - model: model
   - tokenizer: tokenizer
   - lr_scheduler: cosine_with_min_lr_schedule_with_warmup
+  - training: training_args
