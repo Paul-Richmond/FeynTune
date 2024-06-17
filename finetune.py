@@ -77,19 +77,17 @@ def main(cfg: DictConfig) -> None:
 
     # datasets get cached, the default cache directory is ~/.cache/huggingface/datasets
     # the default can be changed through the cache_dir parameter of load_dataset
-    # ds = load_dataset(cfg['names_cfg']['dataset_name'])
-    ds_train, ds_test, ds_valid = load_dataset(cfg.dataset.name,
-                                               split=[f"train[{cfg.dataset.dataset_percent}]",
-                                                      f"test[{cfg.dataset.dataset_percent}]",
-                                                      f"validation[{cfg.dataset.dataset_percent}]"])
-    ds = DatasetDict({"train": ds_train, "test": ds_test, "validation": ds_valid})
-    #
+    ds = load_dataset(cfg.dataset.name)  # we assume there always exists a dictionary key called 'train'
+
     tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer.name)
     tokenizer.pad_token = tokenizer.eos_token
     tokenised_ds = ds.map(lambda examples: tokenizer(examples["abstract"], **cfg.tokenizer.tokenizer_args),
                           batched=True,
                           remove_columns=ds['train'].column_names)
+
     lm_dataset = tokenised_ds.map(create_labels, batched=True)
+    train_dataset = lm_dataset.get('train')
+    eval_dataset = lm_dataset.get('eval', None)
 
     # see: https://huggingface.co/docs/transformers/v4.40.1/en/main_classes/data_collator#transformers.DataCollatorForLanguageModeling
     # and: https://huggingface.co/docs/transformers/v4.40.1/en/tasks/language_modeling#preprocess
@@ -115,8 +113,8 @@ def main(cfg: DictConfig) -> None:
     # Instantiate a dummy trainer to allow us to compute num_training_steps
     trainer = Trainer(model=model,
                       args=training_args,
-                      train_dataset=lm_dataset['train'],
-                      eval_dataset=lm_dataset['test'],
+                      train_dataset=train_dataset,
+                      eval_dataset=eval_dataset,
                       data_collator=data_collator,
                       )
 
@@ -134,8 +132,8 @@ def main(cfg: DictConfig) -> None:
 
     trainer = Trainer(model=model,
                       args=training_args,
-                      train_dataset=lm_dataset['train'],
-                      eval_dataset=lm_dataset['test'],
+                      train_dataset=train_dataset,
+                      eval_dataset=eval_dataset,
                       data_collator=data_collator,
                       optimizers=(optimizer, lr_schedule)
                       )
