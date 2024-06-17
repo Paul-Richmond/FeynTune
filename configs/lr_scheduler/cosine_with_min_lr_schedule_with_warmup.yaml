@@ -1,9 +1,7 @@
-#lr_schedule_class:
 _target_: transformers.optimization.get_cosine_with_min_lr_schedule_with_warmup
-#name: get_cosine_with_min_lr_schedule_with_warmup
-#lr_schedule_args:
+# The number of steps for the warmup phase, gets overidden to 10% of num_training_steps
 num_warmup_steps: ???
-# The total number of training steps.
+# The total number of training steps, gets overidden in the code.
 num_training_steps: ???
 # The number of waves in the cosine schedule (the defaults is to just decrease from the max value to 0 following a half-cosine).
 num_cycles: 0.5

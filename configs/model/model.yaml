@@ -1,23 +1,7 @@
-# Base model to fine tune
-name: "meta-llama/Meta-Llama-3-8B"
-# what attention to use
-attn_implementation: "flash_attention_2"
-# Dictionary of values to use in tokenizing the datasets
-
-training_args_cfg:
-  num_train_epochs: 1
-  evaluation_strategy: epoch
-  log_level: info
-  logging_steps: 1
-  max_grad_norm: 1.0
-  output_dir: hf
-  per_device_train_batch_size: 8
-  per_device_eval_batch_size: 8
-  report_to: wandb
-  run_name: my_first_hydra_run  #--------CHANGE ME! CHANGE ME! CHANGE ME!--------
-  hub_model_id: LLMsForHepth/my_first_run  #--------CHANGE ME! CHANGE ME! CHANGE ME!--------
-  hub_private_repo: true
-  push_to_hub: false
+name: meta-llama/Meta-Llama-3-8B
+device_map: auto
+trust_remote_code: true
+attn_implementation: flash_attention_2
 
 bnb_cfg:
   bnb_4bit_compute_dtype: bfloat16
@@ -26,7 +10,6 @@ bnb_cfg:
   bnb_4bit_use_double_quant: true
   load_in_4bit: true
 
-# Dictionary of values to use setting up LoRA
 lora_cfg:
   bias: none
   lora_alpha: 32

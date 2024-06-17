@@ -68,16 +68,16 @@ def main(cfg: DictConfig) -> None:
     # not all the same length.
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
-    training_args = TrainingArguments(**cfg.model.training_args_cfg)
+    training_args = TrainingArguments(**cfg.training_args)
 
     quant_config = BitsAndBytesConfig(**cfg.model.bnb_cfg)
     lora_config = LoraConfig(**cfg.model.lora_cfg)
 
     foundation_model = AutoModelForCausalLM.from_pretrained(cfg.model.name,
-                                                            device_map="auto",
-                                                            quantization_config=quant_config,
-                                                            trust_remote_code=True,
-                                                            attn_implementation=cfg.model.attn_implementation
+                                                            device_map=cfg.model.device_map,
+                                                            trust_remote_code=cfg.model.trust_remote_code,
+                                                            attn_implementation=cfg.model.attn_implementation,
+                                                            quantization_config=quant_config
                                                             )
     model = prepare_model_for_kbit_training(foundation_model)
     model = get_peft_model(model, lora_config)
