@@ -12,7 +12,8 @@ from transformers import (AutoTokenizer,
                           TrainingArguments,
                           Trainer,
                           )
-from transformers.optimization import get_cosine_with_min_lr_schedule_with_warmup  # needs transformers >= 4.40.0
+# from transformers.optimization import get_cosine_with_min_lr_schedule_with_warmup  # needs transformers >= 4.40.0
+import transformers.optimization
 import torch
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 import math
@@ -20,7 +21,6 @@ import gc
 from functools import partial
 import hydra
 from omegaconf import DictConfig, OmegaConf
-from hydra.utils import instantiate
 
 
 def tokenize_fn(batch, tokenizer, padding='max_length', max_length=720):
@@ -68,20 +68,12 @@ def compute_optimization_steps(trainer):
 
 @hydra.main(version_base=None, config_path="configs", config_name="default")
 def main(cfg: DictConfig) -> None:
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument("-c", "--config",
-    #                     help="Filepath for config file", required=True)
-    # filepath = parser.parse_args().config
-
     load_dotenv()
     HF_TOKEN = os.getenv("HUGGINGFACE_API_KEY")
     WANDB_TOKEN = os.getenv("WANDB_API_KEY")
 
     huggingface_hub.login(token=HF_TOKEN)
-    # wandb.login(key=WANDB_TOKEN)
-
-    # with open(filepath, 'r') as f:
-    #     cfg = yaml.load(f, Loader=yaml.FullLoader)
+    wandb.login(key=WANDB_TOKEN)
 
     # datasets get cached, the default cache directory is ~/.cache/huggingface/datasets
     # the default can be changed through the cache_dir parameter of load_dataset
@@ -94,7 +86,6 @@ def main(cfg: DictConfig) -> None:
     #
     tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer.name)
     tokenizer.pad_token = tokenizer.eos_token
-    # tok_fn = partial(tokenize_fn, tokenizer, **cfg.tokenizer.tokenizer_args)
     tokenised_ds = ds.map(lambda examples: tokenizer(examples["abstract"], **cfg.tokenizer.tokenizer_args),
                           batched=True,
                           remove_columns=ds['train'].column_names)
@@ -134,12 +125,12 @@ def main(cfg: DictConfig) -> None:
     gc.collect()
     # now that we have the number of training steps we can set up the optimzer and learning rate schedule
 
-    optimizer = torch.optim.AdamW(model.parameters(), **cfg.optimizer.optim_args)
-    lr_schedule_cfg = cfg.lr
+    optimizer = hydra.utils.instantiate(cfg.optimizer, params=model.parameters(), **cfg.optimizer)
+    lr_schedule_cfg = cfg.lr.lr_schedule_args
     lr_schedule_cfg.update({'num_training_steps': num_training_steps})
     lr_schedule_cfg.update({'num_warmup_steps': round(0.1 * num_training_steps)})
 
-    lr_schedule = get_cosine_with_min_lr_schedule_with_warmup(optimizer, **lr_schedule_cfg)
+    lr_schedule = hydra.utils.instantiate(cfg.lr, optimizer, **lr_schedule_cfg)
 
     trainer = Trainer(model=model,
                       args=training_args,
