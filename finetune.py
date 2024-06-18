@@ -68,10 +68,10 @@ def main(cfg: DictConfig) -> None:
     # not all the same length.
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
-    training_args = TrainingArguments(**cfg.training_args)
-
-    quant_config = BitsAndBytesConfig(**cfg.model.bnb_cfg)
-    lora_config = LoraConfig(**cfg.model.lora_cfg)
+    # we need to use OmegaConf.to_container to avoid json serialization errors when saving model
+    training_args = TrainingArguments(**OmegaConf.to_container(cfg.training, resolve=True))
+    quant_config = BitsAndBytesConfig(**OmegaConf.to_container(cfg.model.bnb_cfg, resolve=True))
+    lora_config = LoraConfig(**OmegaConf.to_container(cfg.model.lora_cfg, resolve=True))
 
     foundation_model = AutoModelForCausalLM.from_pretrained(cfg.model.name,
                                                             device_map=cfg.model.device_map,
@@ -93,35 +93,24 @@ def main(cfg: DictConfig) -> None:
     num_training_steps = compute_optimization_steps(trainer)
     del trainer
     gc.collect()
+
     # now that we have the number of training steps we can set up the optimzer and learning rate schedule
-
+    cfg.lr_scheduler.update({'num_training_steps': num_training_steps})
+    cfg.lr_scheduler.update({'num_warmup_steps': round(0.1 * num_training_steps)})
     optimizer = hydra.utils.instantiate(cfg.optimizer, params=model.parameters(), **cfg.optimizer)
-    lr_schedule_cfg = cfg.lr.lr_schedule_args
-    lr_schedule_cfg.update({'num_training_steps': num_training_steps})
-    lr_schedule_cfg.update({'num_warmup_steps': round(0.1 * num_training_steps)})
-
-    lr_schedule = hydra.utils.instantiate(cfg.lr, optimizer, **lr_schedule_cfg)
+    lr_scheduler = hydra.utils.instantiate(cfg.lr_scheduler, optimizer, **cfg.lr_scheduler)
 
     trainer = Trainer(model=model,
                       args=training_args,
                       train_dataset=train_dataset,
                       eval_dataset=eval_dataset,
                       data_collator=data_collator,
-                      optimizers=(optimizer, lr_schedule)
+                      optimizers=(optimizer, lr_scheduler)
                       )
 
-    train_result = trainer.train()
-
-    metrics = train_result.metrics
-    trainer.log_metrics("train", metrics)
-    trainer.save_metrics("train", metrics)
-
-    metrics = trainer.evaluate()
-    trainer.log_metrics("eval", metrics)
-    trainer.save_metrics("eval", metrics)
-
-    # following training, we push the fine-tuned model to Huggingface
+    trainer.train()
     trainer.push_to_hub()
+    huggingface_hub.logout()
     wandb.finish()
 
 
