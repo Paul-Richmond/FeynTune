@@ -38,7 +38,7 @@ def compute_optimization_steps(trainer):
     return max_steps
 
 
-@hydra.main(version_base=None, config_path="configs", config_name="default")
+@hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg: DictConfig) -> None:
     load_dotenv()
     HF_TOKEN = os.getenv("HUGGINGFACE_API_KEY")
