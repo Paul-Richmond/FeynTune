@@ -1,7 +1,14 @@
 defaults:
   - optimizer: adamw
-  - dataset: small
+  - dataset: full
   - model: model
   - tokenizer: tokenizer
-  - lr_scheduler: cosine_with_min_lr_schedule_with_warmup
   - training: training_args
+  - callbacks: callbacks
+  - _self_
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${training.run_name}
+  job:
+    chdir: true
