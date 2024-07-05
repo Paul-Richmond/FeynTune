@@ -3,20 +3,16 @@ from dotenv import load_dotenv
 import wandb
 import huggingface_hub
 from datasets import load_dataset
-from transformers import (AutoTokenizer,
-                          DataCollatorForLanguageModeling,
-                          AutoModelForCausalLM,
-                          BitsAndBytesConfig,
+from transformers import (DataCollatorForLanguageModeling,
                           TrainingArguments,
                           Trainer,
                           )
-import transformers.optimization
-import torch
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-import math
-import gc
 import hydra
 from omegaconf import DictConfig, OmegaConf
+from utils.instantiators import (load_automodelforcausallm,
+                                 load_optimizer,
+                                 load_tokenizer,
+                                 instantiate_callbacks)
 
 
 def create_labels(examples):
@@ -24,35 +20,20 @@ def create_labels(examples):
     return examples
 
 
-def compute_optimization_steps(trainer):
-    """Computes the number of optimization steps required to train the model.
-
-    Essentially, copies the code to compute max_steps from the _inner_training_loop method of
-    the Trainer class.
-    """
-    train_dataloader = trainer.get_train_dataloader()
-    len_dataloader = len(train_dataloader)
-    num_update_steps_per_epoch = len_dataloader // trainer.args.gradient_accumulation_steps
-    num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1)
-    max_steps = math.ceil(trainer.args.num_train_epochs * num_update_steps_per_epoch)
-    return max_steps
-
-
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg: DictConfig) -> None:
     load_dotenv()
-    HF_TOKEN = os.getenv("HUGGINGFACE_API_KEY")
-    WANDB_TOKEN = os.getenv("WANDB_API_KEY")
+    hf_token = os.getenv("HUGGINGFACE_API_KEY")
+    wandb_token = os.getenv("WANDB_API_KEY")
 
-    huggingface_hub.login(token=HF_TOKEN)
-    wandb.login(key=WANDB_TOKEN)
+    huggingface_hub.login(token=hf_token)
+    wandb.login(key=wandb_token)
 
     # datasets get cached, the default cache directory is ~/.cache/huggingface/datasets
     # the default can be changed through the cache_dir parameter of load_dataset
     ds = load_dataset(cfg.dataset.name)  # we assume there always exists a dictionary key called 'train'
 
-    tokenizer = AutoTokenizer.from_pretrained(cfg.tokenizer.name)
-    tokenizer.pad_token = tokenizer.eos_token
+    tokenizer = load_tokenizer(cfg.tokenizer)
     tokenised_ds = ds.map(lambda examples: tokenizer(examples["abstract"], **cfg.tokenizer.tokenizer_args),
                           batched=True,
                           remove_columns=ds['train'].column_names)
@@ -61,51 +42,20 @@ def main(cfg: DictConfig) -> None:
     train_dataset = lm_dataset.get('train')
     eval_dataset = lm_dataset.get('eval', None)
 
-    # see: https://huggingface.co/docs/transformers/v4.40.1/en/main_classes/data_collator#transformers.DataCollatorForLanguageModeling
-    # and: https://huggingface.co/docs/transformers/v4.40.1/en/tasks/language_modeling#preprocess
-    # Data collator used for language modeling.
-    # Inputs are dynamically padded to the maximum length of a batch if they are
-    # not all the same length.
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-
+    model = load_automodelforcausallm(cfg.mode)
     # we need to use OmegaConf.to_container to avoid json serialization errors when saving model
     training_args = TrainingArguments(**OmegaConf.to_container(cfg.training, resolve=True))
-    quant_config = BitsAndBytesConfig(**OmegaConf.to_container(cfg.model.bnb_cfg, resolve=True))
-    lora_config = LoraConfig(**OmegaConf.to_container(cfg.model.lora_cfg, resolve=True))
-
-    foundation_model = AutoModelForCausalLM.from_pretrained(cfg.model.name,
-                                                            device_map=cfg.model.device_map,
-                                                            trust_remote_code=cfg.model.trust_remote_code,
-                                                            attn_implementation=cfg.model.attn_implementation,
-                                                            quantization_config=quant_config
-                                                            )
-    model = prepare_model_for_kbit_training(foundation_model)
-    model = get_peft_model(model, lora_config)
-
-    # Instantiate a dummy trainer to allow us to compute num_training_steps
-    trainer = Trainer(model=model,
-                      args=training_args,
-                      train_dataset=train_dataset,
-                      eval_dataset=eval_dataset,
-                      data_collator=data_collator,
-                      )
-
-    num_training_steps = compute_optimization_steps(trainer)
-    del trainer
-    gc.collect()
-
-    # now that we have the number of training steps we can set up the optimzer and learning rate schedule
-    cfg.lr_scheduler.update({'num_training_steps': num_training_steps})
-    cfg.lr_scheduler.update({'num_warmup_steps': round(0.1 * num_training_steps)})
-    optimizer = hydra.utils.instantiate(cfg.optimizer, params=model.parameters(), **cfg.optimizer)
-    lr_scheduler = hydra.utils.instantiate(cfg.lr_scheduler, optimizer, **cfg.lr_scheduler)
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    callbacks = instantiate_callbacks(cfg.callbacks)
+    optimizer = load_optimizer(cfg.optimizer, model)
 
     trainer = Trainer(model=model,
                       args=training_args,
                       train_dataset=train_dataset,
                       eval_dataset=eval_dataset,
                       data_collator=data_collator,
-                      optimizers=(optimizer, lr_scheduler)
+                      optimizers=(optimizer, None),
+                      callbacks=callbacks,
                       )
 
     trainer.train()
