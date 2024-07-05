@@ -1,7 +1,8 @@
-name: meta-llama/Meta-Llama-3-8B
-device_map: auto
-trust_remote_code: true
-attn_implementation: flash_attention_2
+model_cfg:
+  name: meta-llama/Meta-Llama-3-8B
+  device_map: auto
+  trust_remote_code: true
+  attn_implementation: flash_attention_2
 
 bnb_cfg:
   bnb_4bit_compute_dtype: bfloat16
