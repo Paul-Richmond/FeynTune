@@ -14,7 +14,7 @@ def load_optimizer(optimizer_cfg, model):
 
 def load_automodelforcausallm(cfg):
     # need to do this to get mixture of positional and keyword arguments
-    model_cfg = cfg.pop('model_cfg')
+    model_cfg = OmegaConf.to_container(cfg.model_cfg, resolve=True)
     model_name = model_cfg.pop('name')
 
     if 'bnb_cfg' in cfg.keys():
