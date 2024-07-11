@@ -1,5 +1,5 @@
 num_train_epochs: 1
-evaluation_strategy: "no"
+eval_strategy: "no"
 log_level: info
 logging_steps: 1
 max_grad_norm: 1.0
