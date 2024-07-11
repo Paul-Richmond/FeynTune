@@ -1,11 +1,11 @@
 #!/bin/bash
 #$ -l h_rt=1:0:0
-#$ -l h_vmem=11G
-#$ -pe smp 16
+#$ -l h_vmem=7.5G
+#$ -pe smp 24
 #$ -l gpu=2
+#$ -l gpu_type=ampere
 #$ -cwd
 #$ -j y
-#$ -N finetune_gpu2
 
 cd ~
 
@@ -16,4 +16,4 @@ mamba activate llm
 
 cd $HOME/hepthLlama
 
-python3 finetune.py -c "./configs/config.yaml"
+python3 src/finetune.py training.run_name="CHANGE_ME"
