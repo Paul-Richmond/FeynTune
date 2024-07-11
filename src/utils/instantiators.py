@@ -75,7 +75,7 @@ def instantiate_callbacks(callbacks_cfg):
     return callbacks
 
 
-def load_train_and_eval_datasets(datasets_cfg):
+def load_dataset_splits(datasets_cfg):
     datasets_ = {}
     for split in datasets_cfg.splits:
         datasets_[split] = load_dataset(datasets_cfg.name, split=split)
