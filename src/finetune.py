@@ -2,61 +2,53 @@ import os
 from dotenv import load_dotenv
 import wandb
 import huggingface_hub
-from datasets import load_dataset
-from transformers import (DataCollatorForLanguageModeling,
-                          TrainingArguments,
-                          Trainer,
-                          )
+from transformers import DataCollatorForLanguageModeling, TrainingArguments
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from utils.instantiators import (load_automodelforcausallm,
                                  load_optimizer,
                                  load_tokenizer,
-                                 instantiate_callbacks)
+                                 instantiate_callbacks,
+                                 load_dataset_splits)
+from utils.trainers import PerplexityTrainer
+from utils.metrics import compute_perplexities, metric_perplexity
+
+load_dotenv()
+hf_token = os.getenv("HUGGINGFACE_API_KEY")
+wandb_token = os.getenv("WANDB_API_KEY")
+
+huggingface_hub.login(token=hf_token)
+wandb.login(key=wandb_token)
 
 
-def create_labels(examples):
-    examples["labels"] = examples["input_ids"].copy()
-    return examples
-
-
-@hydra.main(version_base=None, config_path="../configs", config_name="default")
+@hydra.main(version_base=None, config_path="../configs", config_name="apoc")
 def main(cfg: DictConfig) -> None:
-    load_dotenv()
-    hf_token = os.getenv("HUGGINGFACE_API_KEY")
-    wandb_token = os.getenv("WANDB_API_KEY")
-
-    huggingface_hub.login(token=hf_token)
-    wandb.login(key=wandb_token)
-
-    # datasets get cached, the default cache directory is ~/.cache/huggingface/datasets
-    # the default can be changed through the cache_dir parameter of load_dataset
-    ds = load_dataset(cfg.dataset.name)  # we assume there always exists a dictionary key called 'train'
-
+    ds = load_dataset_splits(cfg.dataset)
     tokenizer = load_tokenizer(cfg.tokenizer)
-    tokenised_ds = ds.map(lambda examples: tokenizer(examples["abstract"], **cfg.tokenizer.tokenizer_args),
+    tokenised_ds = ds.map(lambda examples: tokenizer(examples[cfg.dataset.column_to_tokenize],
+                                                     **cfg.tokenizer.tokenizer_args),
                           batched=True,
                           remove_columns=ds['train'].column_names)
+    tokenised_ds = tokenised_ds.map(lambda example: {"labels": example["input_ids"]}, batched=True)
 
-    lm_dataset = tokenised_ds.map(create_labels, batched=True)
-    train_dataset = lm_dataset.get('train')
-    eval_dataset = lm_dataset.get('eval', None)
-
-    model = load_automodelforcausallm(cfg.mode)
+    model = load_automodelforcausallm(cfg.model)
     # we need to use OmegaConf.to_container to avoid json serialization errors when saving model
     training_args = TrainingArguments(**OmegaConf.to_container(cfg.training, resolve=True))
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     callbacks = instantiate_callbacks(cfg.callbacks)
     optimizer = load_optimizer(cfg.optimizer, model)
 
-    trainer = Trainer(model=model,
-                      args=training_args,
-                      train_dataset=train_dataset,
-                      eval_dataset=eval_dataset,
-                      data_collator=data_collator,
-                      optimizers=(optimizer, None),
-                      callbacks=callbacks,
-                      )
+    trainer = PerplexityTrainer(model=model,
+                                args=training_args,
+                                train_dataset=tokenised_ds.get('train'),
+                                eval_dataset=tokenised_ds.get('eval', None),
+                                data_collator=data_collator,
+                                tokenizer=tokenizer,
+                                optimizers=(optimizer, None),
+                                callbacks=callbacks,
+                                compute_metrics=metric_perplexity,
+                                preprocess_logits_for_metrics=compute_perplexities
+                                )
 
     trainer.train()
     trainer.push_to_hub()
