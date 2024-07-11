@@ -5,6 +5,7 @@ from transformers import (AutoTokenizer,
                           BitsAndBytesConfig,
                           )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from datasets import load_dataset, DatasetDict
 
 
 def load_optimizer(optimizer_cfg, model):
@@ -74,5 +75,8 @@ def instantiate_callbacks(callbacks_cfg):
     return callbacks
 
 
-def load_lr_scheduler(lr_scheduler_cfg, ):
-    pass
+def load_train_and_eval_datasets(datasets_cfg):
+    datasets_ = {}
+    for split in datasets_cfg.splits:
+        datasets_[split] = load_dataset(datasets_cfg.name, split=split)
+    return DatasetDict(datasets_)
