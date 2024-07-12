@@ -1,10 +1,12 @@
 import os
+
 from dotenv import load_dotenv
 import wandb
 import huggingface_hub
 from transformers import DataCollatorForLanguageModeling, TrainingArguments
 import hydra
 from omegaconf import DictConfig, OmegaConf
+
 from utils.instantiators import (load_automodelforcausallm,
                                  load_optimizer,
                                  load_tokenizer,
@@ -21,7 +23,7 @@ huggingface_hub.login(token=hf_token)
 wandb.login(key=wandb_token)
 
 
-@hydra.main(version_base=None, config_path="../configs", config_name="apoc")
+@hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg: DictConfig) -> None:
     ds = load_dataset_splits(cfg.dataset)
     tokenizer = load_tokenizer(cfg.tokenizer)
@@ -41,7 +43,7 @@ def main(cfg: DictConfig) -> None:
     trainer = PerplexityTrainer(model=model,
                                 args=training_args,
                                 train_dataset=tokenised_ds.get('train'),
-                                eval_dataset=tokenised_ds.get('eval', None),
+                                eval_dataset=tokenised_ds.get('test', None),
                                 data_collator=data_collator,
                                 tokenizer=tokenizer,
                                 optimizers=(optimizer, None),
