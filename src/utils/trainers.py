@@ -52,7 +52,6 @@ class PerplexityTrainer(Trainer):
 
         if not self.control.should_evaluate:
             logs = {"original_loss": self.state.original_loss, "perplexities": self.state.batch_perplexities}
-            self.log(logs)
 
         output = {**logs, **{"step": self.state.global_step}}
         self.state.log_history.append(output)
