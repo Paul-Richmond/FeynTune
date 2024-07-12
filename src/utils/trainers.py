@@ -1,5 +1,6 @@
 from transformers import Trainer
-from metrics import compute_perplexities
+
+from .metrics import compute_perplexities
 
 
 class PerplexityTrainer(Trainer):
@@ -34,7 +35,7 @@ class PerplexityTrainer(Trainer):
 
     def compute_loss(self, model, inputs, return_outputs=False):
         outputs = model(**inputs)
-        perplexities = compute_perplexities(outputs['logits'], outputs['labels'])
+        perplexities = compute_perplexities(outputs['logits'], inputs['labels'])
 
         self.state.batch_perplexities = perplexities.tolist()
         self.state.original_loss = outputs.loss.item()
