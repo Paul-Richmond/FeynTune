@@ -1,19 +1,20 @@
 import os
+from functools import partial
 
 from dotenv import load_dotenv
-import wandb
 import huggingface_hub
-from transformers import DataCollatorForLanguageModeling, TrainingArguments
 import hydra
 from omegaconf import DictConfig, OmegaConf
+from transformers import DataCollatorForLanguageModeling, TrainingArguments
+import wandb
 
 from utils.instantiators import (load_automodelforcausallm,
                                  load_optimizer,
                                  load_tokenizer,
                                  instantiate_callbacks,
                                  load_dataset_splits)
-from utils.trainers import PerplexityTrainer
 from utils.metrics import compute_perplexities, metric_perplexity
+from utils.trainers import PerplexityTrainer
 
 load_dotenv()
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
@@ -21,6 +22,23 @@ wandb_token = os.getenv("WANDB_API_KEY")
 
 huggingface_hub.login(token=hf_token)
 wandb.login(key=wandb_token)
+
+
+def group_abstracts(examples, block_size=512):
+    """Concatenates the data and then divides into fixed-length chunks of size block_size."""
+    # Concatenate all texts.
+    concatenated_examples = {k: sum(examples[k], []) for k in examples.keys()}
+    total_length = len(concatenated_examples[list(examples.keys())[0]])
+    # We drop the small remainder, we could add padding if the model supported it instead of this drop, you can
+    # customize this part to your needs.
+    if total_length >= block_size:
+        total_length = (total_length // block_size) * block_size
+    # Split by chunks of block_size.
+    result = {
+        k: [t[i: i + block_size] for i in range(0, total_length, block_size)]
+        for k, t in concatenated_examples.items()
+    }
+    return result
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
@@ -31,7 +49,12 @@ def main(cfg: DictConfig) -> None:
                                                      **cfg.tokenizer.tokenizer_args),
                           batched=True,
                           remove_columns=ds['train'].column_names)
-    tokenised_ds = tokenised_ds.map(lambda example: {"labels": example["input_ids"]}, batched=True)
+    if cfg.tokenizer.get('add_labels'):
+        tokenised_ds = tokenised_ds.map(lambda example: {"labels": example["input_ids"]}, batched=True)
+    if cfg.tokenizer.get('concatenate_and_split_length') is not None:
+        tokenised_ds = tokenised_ds.map(partial(group_abstracts,
+                                                block_size=cfg.tokenizer.concatenate_and_split_length),
+                                        batched=True)
 
     model = load_automodelforcausallm(cfg.model)
     # we need to use OmegaConf.to_container to avoid json serialization errors when saving model
