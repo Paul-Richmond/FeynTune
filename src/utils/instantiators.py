@@ -56,6 +56,16 @@ def load_tokenizer(tokenizer_cfg):
             ]
         )
         tokenizer.pad_token = tokenizer.eos_token
+    elif 'Llama-2' in tokenizer_cfg.name:
+        tokenizer.add_special_tokens(
+            {
+                "eos_token": "</s>",
+                "bos_token": "</s>",
+                "unk_token": "</s>",
+            }
+        )
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.padding_side = "right"
     return tokenizer
 
 
