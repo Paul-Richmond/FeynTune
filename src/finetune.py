@@ -12,7 +12,8 @@ from utils.instantiators import (load_automodelforcausallm,
                                  load_optimizer,
                                  load_tokenizer,
                                  instantiate_callbacks,
-                                 load_dataset_splits)
+                                 load_dataset_splits,
+                                 instantiate_training_args)
 from utils.metrics import compute_perplexities, metric_perplexity
 from utils.trainers import PerplexityTrainer
 
@@ -57,8 +58,7 @@ def main(cfg: DictConfig) -> None:
                                         batched=True)
 
     model = load_automodelforcausallm(cfg.model)
-    # we need to use OmegaConf.to_container to avoid json serialization errors when saving model
-    training_args = TrainingArguments(**OmegaConf.to_container(cfg.training, resolve=True))
+    training_args = instantiate_training_args(cfg.training.training_args_cfg)
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     callbacks = instantiate_callbacks(cfg.callbacks)
     optimizer = load_optimizer(cfg.optimizer, model)
