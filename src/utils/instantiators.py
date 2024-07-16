@@ -90,3 +90,8 @@ def load_dataset_splits(datasets_cfg):
     for split, split_value in datasets_cfg.splits.items():
         datasets_[split] = load_dataset(datasets_cfg.name, split=split_value)
     return DatasetDict(datasets_)
+
+
+def instantiate_training_args(tr_args_cfg):
+    tr_args = instantiate(tr_args_cfg, **OmegaConf.to_container(tr_args_cfg, resolve=True))
+    return tr_args
