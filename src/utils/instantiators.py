@@ -92,6 +92,8 @@ def load_dataset_splits(datasets_cfg):
     return DatasetDict(datasets_)
 
 
-def instantiate_training_args(tr_args_cfg):
-    tr_args = instantiate(tr_args_cfg, **OmegaConf.to_container(tr_args_cfg, resolve=True))
-    return tr_args
+def instantiate_training(cfg):
+    partial_trainer = instantiate(cfg.trainer_cfg)
+    tr_args = instantiate(cfg.training_args_cfg,
+                          **OmegaConf.to_container(cfg.training_args_cfg, resolve=True))
+    return partial_trainer, tr_args
