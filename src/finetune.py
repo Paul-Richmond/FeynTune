@@ -13,7 +13,7 @@ from utils.instantiators import (load_automodelforcausallm,
                                  load_tokenizer,
                                  instantiate_callbacks,
                                  load_dataset_splits,
-                                 instantiate_training_args)
+                                 instantiate_training)
 from utils.metrics import compute_perplexities, metric_perplexity
 from utils.trainers import PerplexityTrainer
 
@@ -58,22 +58,23 @@ def main(cfg: DictConfig) -> None:
                                         batched=True)
 
     model = load_automodelforcausallm(cfg.model)
-    training_args = instantiate_training_args(cfg.training.training_args_cfg)
+    trainer_cls, training_args = instantiate_training(cfg.training)
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     callbacks = instantiate_callbacks(cfg.callbacks)
     optimizer = load_optimizer(cfg.optimizer, model)
 
-    trainer = PerplexityTrainer(model=model,
-                                args=training_args,
-                                train_dataset=tokenised_ds.get('train'),
-                                eval_dataset=tokenised_ds.get('test', None),
-                                data_collator=data_collator,
-                                tokenizer=tokenizer,
-                                optimizers=(optimizer, None),
-                                callbacks=callbacks,
-                                compute_metrics=metric_perplexity,
-                                preprocess_logits_for_metrics=compute_perplexities
-                                )
+    if isinstance(training_args, TrainingArguments):
+        trainer = trainer_cls(model=model,
+                              args=training_args,
+                              train_dataset=tokenised_ds.get('train'),
+                              eval_dataset=tokenised_ds.get('test', None),
+                              data_collator=data_collator,
+                              tokenizer=tokenizer,
+                              optimizers=(optimizer, None),
+                              callbacks=callbacks,
+                              compute_metrics=metric_perplexity,
+                              preprocess_logits_for_metrics=compute_perplexities
+                              )
 
     trainer.train()
     trainer.push_to_hub()
