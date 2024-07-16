@@ -14,6 +14,10 @@ module load cuda/11.8
 
 mamba activate llm
 
+# change where the huggingface dataset and model are cached to
+# see https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables
+export HF_HOME=/data/scratch/$USER/.cache/huggingface/hub
+
 cd $HOME/hepthLlama
 
 python3 src/finetune.py training.run_name="CHANGE_ME"
