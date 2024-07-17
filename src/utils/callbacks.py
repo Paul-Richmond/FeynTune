@@ -19,6 +19,7 @@ class GenCallback(TrainerCallback):
             generation_config.pad_token_id = tokenizer.eos_token_id
 
             generator = pipeline(task="text-generation",
+                                 # do I need to unwrap the model as it a PEFT model
                                  model=model,
                                  tokenizer=tokenizer,
                                  )
@@ -36,6 +37,7 @@ class GenCallback(TrainerCallback):
                 generated_text = generator(prompt,
                                            do_sample=True,
                                            max_length=720,
+                                           max_time=120,
                                            eos_token_id=terminators)
 
                 paper_dict = {"Full abstract": abstract,
@@ -44,7 +46,7 @@ class GenCallback(TrainerCallback):
                               }
 
                 full_dict.update({f"Paper{idx + 1}": paper_dict})
-
+            # TODO: this gets saved to the repo directory, change it to hydra run directory
             json_file = f"Generated_abstracts_step_{state.global_step}.json"
             with open(json_file, "w") as f:
                 json.dump(full_dict, f)
