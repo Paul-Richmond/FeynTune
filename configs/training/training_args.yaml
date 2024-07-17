@@ -14,7 +14,7 @@ training_args_cfg:
   report_to: wandb
   run_name: ???
   push_to_hub: true
-  hub_model_id: LLMsForHepth/${training.run_name}
+  hub_model_id: LLMsForHepth/${training.training_args_cfg.run_name}
   hub_private_repo: true
   lr_scheduler_type: cosine_with_min_lr
   warmup_ratio: 0.1
