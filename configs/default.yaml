@@ -4,7 +4,7 @@ defaults:
   - model: model
   - tokenizer: tokenizer
   - training: training_args
-  - callbacks: callbacks
+  - callbacks: none
   - _self_
 
 hydra:
