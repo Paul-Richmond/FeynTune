@@ -1,0 +1,6 @@
+name: meta-llama/Meta-Llama-3-8B
+tokenizer_args:
+  padding: max_length
+  max_length: 720
+post_processing:
+  add_labels: true

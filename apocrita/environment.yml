@@ -6,7 +6,7 @@ channels:
 
 dependencies:
   # Base
-  - conda-forge::python=3.8
+  - conda-forge::python=3.10
   - pytorch::pytorch=>2.1
   - pytorch::pytorch-cuda=11.8
   - nvidia::cuda=11.8

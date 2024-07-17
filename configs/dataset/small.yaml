@@ -1,0 +1,5 @@
+name: LLMsForHepth/arxiv_hepth_first
+splits:
+  train: train[:10%]
+  test: test[:10%]
+column_to_tokenize: abstract

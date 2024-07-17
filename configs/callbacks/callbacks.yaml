@@ -1,0 +1,2 @@
+cb1:
+  _target_: utils.callbacks.GenCallback

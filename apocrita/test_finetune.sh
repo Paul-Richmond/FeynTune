@@ -1,11 +1,11 @@
 #!/bin/bash
 #$ -l h_rt=1:0:0
-#$ -l h_vmem=11G
-#$ -pe smp 16
+#$ -l h_vmem=7.5G
+#$ -pe smp 24
 #$ -l gpu=2
+#$ -l gpu_type=ampere
 #$ -cwd
 #$ -j y
-#$ -N finetune_gpu2
 
 cd ~
 
@@ -14,6 +14,10 @@ module load cuda/11.8
 
 mamba activate llm
 
+# change where the huggingface dataset and model are cached to
+# see https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables
+export HF_HOME=/data/scratch/$USER/.cache/huggingface/hub
+
 cd $HOME/hepthLlama
 
-python3 finetune.py -c "./configs/config.yaml"
+python3 src/finetune.py training.training_args_cfg.run_name="CHANGE_ME"

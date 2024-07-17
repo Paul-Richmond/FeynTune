@@ -1,0 +1,14 @@
+defaults:
+  - optimizer: adamw
+  - dataset: full
+  - model: model
+  - tokenizer: tokenizer
+  - training: training_args
+  - callbacks: none
+  - _self_
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${training.training_args_cfg.run_name}
+  job:
+    chdir: false

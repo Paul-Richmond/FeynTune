@@ -1,0 +1,27 @@
+model_cfg:
+  name: meta-llama/Meta-Llama-3-8B
+  device_map: auto
+  trust_remote_code: true
+  attn_implementation: flash_attention_2
+
+bnb_cfg:
+  bnb_4bit_compute_dtype: bfloat16
+  bnb_4bit_quant_storage: null
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_use_double_quant: true
+  load_in_4bit: true
+
+lora_cfg:
+  bias: none
+  lora_alpha: 32
+  lora_dropout: 0.05
+  r: 8
+  target_modules: # choice taken from https://huggingface.co/blog/mlabonne/orpo-llama-3
+    - up_proj
+    - down_proj
+    - gate_proj
+    - k_proj
+    - q_proj
+    - v_proj
+    - o_proj
+  task_type: CAUSAL_LM
