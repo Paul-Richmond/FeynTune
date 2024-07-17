@@ -4,8 +4,8 @@ from functools import partial
 from dotenv import load_dotenv
 import huggingface_hub
 import hydra
-from omegaconf import DictConfig, OmegaConf
-from transformers import DataCollatorForLanguageModeling, TrainingArguments
+from omegaconf import DictConfig
+from transformers import DataCollatorForLanguageModeling
 import wandb
 
 from utils.instantiators import (load_automodelforcausallm,
@@ -14,8 +14,6 @@ from utils.instantiators import (load_automodelforcausallm,
                                  instantiate_callbacks,
                                  load_dataset_splits,
                                  instantiate_training)
-from utils.metrics import compute_perplexities, metric_perplexity
-from utils.trainers import PerplexityTrainer
 
 load_dotenv()
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
@@ -63,18 +61,17 @@ def main(cfg: DictConfig) -> None:
     callbacks = instantiate_callbacks(cfg.callbacks)
     optimizer = load_optimizer(cfg.optimizer, model)
 
-    if isinstance(training_args, TrainingArguments):
-        trainer = trainer_cls(model=model,
-                              args=training_args,
-                              train_dataset=tokenised_ds.get('train'),
-                              eval_dataset=tokenised_ds.get('test', None),
-                              data_collator=data_collator,
-                              tokenizer=tokenizer,
-                              optimizers=(optimizer, None),
-                              callbacks=callbacks,
-                              compute_metrics=metric_perplexity,
-                              preprocess_logits_for_metrics=compute_perplexities
-                              )
+    trainer = trainer_cls(model=model,
+                          args=training_args,
+                          train_dataset=tokenised_ds.get('train'),
+                          eval_dataset=tokenised_ds.get('test', None),
+                          data_collator=data_collator,
+                          tokenizer=tokenizer,
+                          optimizers=(optimizer, None),
+                          callbacks=callbacks,
+                          compute_metrics=None,
+                          preprocess_logits_for_metrics=None
+                          )
 
     trainer.train()
     trainer.push_to_hub()
