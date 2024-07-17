@@ -15,7 +15,7 @@ srun python3 -m venv LLM
 source LLM/bin/activate
 
 srun python3 -m pip install --upgrade pip
-srun python3 -m pip install huggingface_hub datasets transformers torch wandb bitsandbytes accelerate peft python-dotenv flash-attn
+srun python3 -m pip install huggingface_hub datasets transformers torch wandb bitsandbytes accelerate peft python-dotenv flash-attn hydra-core
 
 export BNB_CUDA_VERSION=118
 
