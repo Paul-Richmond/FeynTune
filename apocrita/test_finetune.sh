@@ -20,4 +20,4 @@ export HF_HOME=/data/scratch/$USER/.cache/huggingface/hub
 
 cd $HOME/hepthLlama
 
-python3 src/finetune.py training.run_name="CHANGE_ME"
+python3 src/finetune.py training.training_args_cfg.run_name="CHANGE_ME"
