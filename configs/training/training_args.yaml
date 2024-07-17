@@ -1,18 +1,22 @@
-num_train_epochs: 1
-eval_strategy: "no"
-log_level: info
-logging_steps: 1
-max_grad_norm: 1.0
-per_device_train_batch_size: 24
-per_device_eval_batch_size: 24
-output_dir: hf
-report_to: wandb
-run_name: ???
-push_to_hub: true
-hub_model_id: LLMsForHepth/${training.run_name}
-hub_private_repo: true
-save_steps: 100
-lr_scheduler_type: cosine_with_min_lr
-warmup_ratio: 0.1
-lr_scheduler_kwargs:
-  min_lr_rate: 0.1
+trainer_cfg:
+  _target_: utils.trainers.PerplexityTrainer
+  _partial_: true
+training_args_cfg:
+  _target_: transformers.TrainingArguments
+  num_train_epochs: 3
+  eval_strategy: "epoch"
+  log_level: info
+  logging_steps: 1
+  max_grad_norm: 1.0
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 32
+  output_dir: hf
+  report_to: wandb
+  run_name: ???
+  push_to_hub: true
+  hub_model_id: LLMsForHepth/${training.run_name}
+  hub_private_repo: true
+  lr_scheduler_type: cosine_with_min_lr
+  warmup_ratio: 0.1
+  lr_scheduler_kwargs:
+    min_lr_rate: 0.1

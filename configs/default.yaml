@@ -9,6 +9,6 @@ defaults:
 
 hydra:
   run:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${training.run_name}
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${training.training_args_cfg.run_name}
   job:
-    chdir: true
+    chdir: false
