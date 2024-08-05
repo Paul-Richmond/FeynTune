@@ -1,6 +1,6 @@
 name: meta-llama/Meta-Llama-3-8B
 tokenizer_args:
-  padding: max_length
-  max_length: 720
+  padding: do_not_pad
+  truncation: do_not_truncate
 post_processing:
   add_labels: true
