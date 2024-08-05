@@ -1,5 +1,4 @@
 import os
-from functools import partial
 
 from dotenv import load_dotenv
 import huggingface_hub
@@ -47,13 +46,17 @@ def main(cfg: DictConfig) -> None:
     tokenised_ds = ds.map(lambda examples: tokenizer(examples[cfg.dataset.column_to_tokenize],
                                                      **cfg.tokenizer.tokenizer_args),
                           batched=True,
-                          remove_columns=ds['train'].column_names)
-    if cfg.tokenizer.get('add_labels'):
-        tokenised_ds = tokenised_ds.map(lambda example: {"labels": example["input_ids"]}, batched=True)
-    if cfg.tokenizer.get('concatenate_and_split_length') is not None:
-        tokenised_ds = tokenised_ds.map(partial(group_abstracts,
-                                                block_size=cfg.tokenizer.concatenate_and_split_length),
-                                        batched=True)
+                          remove_columns=ds['train'].column_names,
+                          desc="Tokenizing")
+    if cfg.tokenizer.post_processing.get('add_labels'):
+        tokenised_ds = tokenised_ds.map(lambda example: {"labels": example["input_ids"]},
+                                        batched=True,
+                                        desc="Adding labels")
+    if cfg.tokenizer.post_processing.get('concatenate_and_split_length') is not None:
+        tokenised_ds = tokenised_ds.map(group_abstracts,
+                                        fn_kwargs={'block_size': cfg.tokenizer.post_processing.concatenate_and_split_length},
+                                        batched=True,
+                                        desc="Applying group abstracts")
 
     model = load_automodelforcausallm(cfg.model)
     trainer_cls, training_args = instantiate_training(cfg.training)
