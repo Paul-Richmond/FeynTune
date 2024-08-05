@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import huggingface_hub
 import hydra
 from omegaconf import DictConfig
-from transformers import DataCollatorForLanguageModeling
+from transformers import DataCollatorForLanguageModeling, DataCollatorWithPadding
 import wandb
 
 from utils.instantiators import (load_automodelforcausallm,
@@ -60,7 +60,7 @@ def main(cfg: DictConfig) -> None:
 
     model = load_automodelforcausallm(cfg.model)
     trainer_cls, training_args = instantiate_training(cfg.training)
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)  #pads a batch to all have same sequence length
     callbacks = instantiate_callbacks(cfg.callbacks)
     optimizer = load_optimizer(cfg.optimizer, model)
 
