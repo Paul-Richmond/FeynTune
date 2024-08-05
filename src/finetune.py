@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import huggingface_hub
 import hydra
 from omegaconf import DictConfig
-from transformers import DataCollatorForLanguageModeling, DataCollatorWithPadding
+from transformers import DataCollatorWithPadding
 import wandb
 
 from utils.instantiators import (load_automodelforcausallm,
