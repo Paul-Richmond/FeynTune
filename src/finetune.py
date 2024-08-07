@@ -39,6 +39,19 @@ def group_abstracts(examples, block_size=512):
     return result
 
 
+# see https://github.com/huggingface/transformers/issues/28066
+class CustomCollator:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+
+    def __call__(self, features):
+        # features is a python list
+        features = [{k: v for k, v in d.items() if k != 'labels'} for d in features]
+        batch = self.tokenizer.pad(features, return_tensors="pt")
+        batch["labels"] = batch["input_ids"]
+        return batch
+
+
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg: DictConfig) -> None:
     ds = load_dataset_splits(cfg.dataset)
@@ -60,7 +73,7 @@ def main(cfg: DictConfig) -> None:
 
     model = load_automodelforcausallm(cfg.model)
     trainer_cls, training_args = instantiate_training(cfg.training)
-    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)  #pads a batch to all have same sequence length
+    data_collator = CustomCollator(tokenizer=tokenizer)  #dynamically pads a batch to all have same tensor shapes
     callbacks = instantiate_callbacks(cfg.callbacks)
     optimizer = load_optimizer(cfg.optimizer, model)
 
