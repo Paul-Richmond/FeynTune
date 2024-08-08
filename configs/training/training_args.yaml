@@ -1,5 +1,5 @@
 trainer_cfg:
-  _target_: utils.trainers.PerplexityAsLossTrainer
+  _target_: transformers.Trainer
   _partial_: true
 training_args_cfg:
   _target_: transformers.TrainingArguments
