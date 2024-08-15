@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import huggingface_hub
 import hydra
 from omegaconf import DictConfig
-from transformers import DataCollatorWithPadding
+from transformers import DataCollatorForSeq2Seq
 import wandb
 
 from utils.instantiators import (load_automodelforcausallm,
@@ -73,7 +73,8 @@ def main(cfg: DictConfig) -> None:
 
     model = load_automodelforcausallm(cfg.model)
     trainer_cls, training_args = instantiate_training(cfg.training)
-    data_collator = CustomCollator(tokenizer=tokenizer)  #dynamically pads a batch to all have same tensor shapes
+    # why pad_to_multiple_of=8? see https://docs.nvidia.com/deeplearning/performance/mixed-precision-training/index.html#opt-tensor-cores
+    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, pad_to_multiple_of=8)  #dynamically pads a batch to all have same tensor shapes
     callbacks = instantiate_callbacks(cfg.callbacks)
     optimizer = load_optimizer(cfg.optimizer, model)
 
