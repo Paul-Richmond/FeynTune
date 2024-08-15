@@ -4,14 +4,14 @@ trainer_cfg:
 training_args_cfg:
   _target_: transformers.TrainingArguments
   num_train_epochs: 3
-  eval_strategy: "epoch"
+  eval_strategy: epoch
   log_level: info
   logging_steps: 1
   max_grad_norm: 1.0
-  per_device_train_batch_size: 32
-  per_device_eval_batch_size: 32
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 16
   bf16: true
-  output_dir: hf
+  output_dir: /data/scratch/${oc.env:USER}/LLMsForHepth/${training.training_args_cfg.run_name}
   report_to: wandb
   run_name: ???
   push_to_hub: true
@@ -21,3 +21,4 @@ training_args_cfg:
   warmup_ratio: 0.1
   lr_scheduler_kwargs:
     min_lr_rate: 0.1
+resume_from_checkpoint: null # (str, bool or null)
