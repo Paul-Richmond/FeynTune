@@ -90,7 +90,7 @@ def main(cfg: DictConfig) -> None:
                           preprocess_logits_for_metrics=None
                           )
 
-    trainer.train()
+    trainer.train(resume_from_checkpoint=cfg.training.resume_from_checkpoint)
     trainer.push_to_hub()
     huggingface_hub.logout()
     wandb.finish()
