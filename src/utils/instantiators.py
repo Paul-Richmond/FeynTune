@@ -3,6 +3,7 @@ from omegaconf import DictConfig, OmegaConf
 from transformers import (AutoTokenizer,
                           AutoModelForCausalLM,
                           BitsAndBytesConfig,
+                          LlamaTokenizerFast
                           )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 from datasets import load_dataset, DatasetDict
@@ -56,14 +57,8 @@ def load_tokenizer(tokenizer_cfg):
             ]
         )
         tokenizer.pad_token = tokenizer.eos_token
-    elif 'Llama-2' in tokenizer_cfg.name:
-        tokenizer.add_special_tokens(
-            {
-                "eos_token": "</s>",
-                "bos_token": "</s>",
-                "unk_token": "</s>",
-            }
-        )
+    elif isinstance(tokenizer, LlamaTokenizerFast):
+        tokenizer.add_eos_token = True
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
     return tokenizer

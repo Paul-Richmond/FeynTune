@@ -1,11 +1,10 @@
 import os
-from functools import partial
 
 from dotenv import load_dotenv
 import huggingface_hub
 import hydra
 from omegaconf import DictConfig
-from transformers import DataCollatorForLanguageModeling
+from transformers import DataCollatorForSeq2Seq
 import wandb
 
 from utils.instantiators import (load_automodelforcausallm,
@@ -40,6 +39,19 @@ def group_abstracts(examples, block_size=512):
     return result
 
 
+# see https://github.com/huggingface/transformers/issues/28066
+class CustomCollator:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+
+    def __call__(self, features):
+        # features is a python list
+        features = [{k: v for k, v in d.items() if k != 'labels'} for d in features]
+        batch = self.tokenizer.pad(features, return_tensors="pt")
+        batch["labels"] = batch["input_ids"]
+        return batch
+
+
 @hydra.main(version_base=None, config_path="../configs", config_name="default")
 def main(cfg: DictConfig) -> None:
     ds = load_dataset_splits(cfg.dataset)
@@ -47,17 +59,22 @@ def main(cfg: DictConfig) -> None:
     tokenised_ds = ds.map(lambda examples: tokenizer(examples[cfg.dataset.column_to_tokenize],
                                                      **cfg.tokenizer.tokenizer_args),
                           batched=True,
-                          remove_columns=ds['train'].column_names)
-    if cfg.tokenizer.get('add_labels'):
-        tokenised_ds = tokenised_ds.map(lambda example: {"labels": example["input_ids"]}, batched=True)
-    if cfg.tokenizer.get('concatenate_and_split_length') is not None:
-        tokenised_ds = tokenised_ds.map(partial(group_abstracts,
-                                                block_size=cfg.tokenizer.concatenate_and_split_length),
-                                        batched=True)
+                          remove_columns=ds['train'].column_names,
+                          desc="Tokenizing")
+    if cfg.tokenizer.post_processing.get('add_labels'):
+        tokenised_ds = tokenised_ds.map(lambda example: {"labels": example["input_ids"]},
+                                        batched=True,
+                                        desc="Adding labels")
+    if cfg.tokenizer.post_processing.get('concatenate_and_split_length') is not None:
+        tokenised_ds = tokenised_ds.map(group_abstracts,
+                                        fn_kwargs={'block_size': cfg.tokenizer.post_processing.concatenate_and_split_length},
+                                        batched=True,
+                                        desc="Applying group abstracts")
 
     model = load_automodelforcausallm(cfg.model)
     trainer_cls, training_args = instantiate_training(cfg.training)
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    # why pad_to_multiple_of=8? see https://docs.nvidia.com/deeplearning/performance/mixed-precision-training/index.html#opt-tensor-cores
+    data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, pad_to_multiple_of=8)  #dynamically pads a batch to all have same tensor shapes
     callbacks = instantiate_callbacks(cfg.callbacks)
     optimizer = load_optimizer(cfg.optimizer, model)
 
@@ -73,7 +90,7 @@ def main(cfg: DictConfig) -> None:
                           preprocess_logits_for_metrics=None
                           )
 
-    trainer.train()
+    trainer.train(resume_from_checkpoint=cfg.training.resume_from_checkpoint)
     trainer.push_to_hub()
     huggingface_hub.logout()
     wandb.finish()
