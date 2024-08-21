@@ -4,15 +4,10 @@ from dotenv import load_dotenv
 import huggingface_hub
 import hydra
 from omegaconf import DictConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from transformers import AutoTokenizer
 import wandb
 
-from utils.instantiators import (load_automodelforcausallm,
-                                 load_optimizer,
-                                 load_tokenizer,
-                                 instantiate_callbacks,
-                                 load_dataset_splits,
-                                 instantiate_training)
+from utils.instantiators import load_automodelforcausallm, load_dataset_splits
 
 load_dotenv()
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
@@ -31,7 +26,6 @@ class AbstractCompleter:
         self.dataset = dataset
 
         self.batch_size = 16 if batch_size is None else batch_size
-        self.label = 'abstract'
         if generation_config is None:
             self.generation_config = {
                 "temperature": 0.7,
@@ -45,6 +39,7 @@ class AbstractCompleter:
             }
         else:
             self.generation_config = generation_config
+        self.label = 'abstract'
 
     def _predict(self, batch):
         texts = batch['prompt']
@@ -72,10 +67,10 @@ class AbstractCompleter:
 @hydra.main(version_base=None, config_path="../configs", config_name="default_infer")
 def main(cfg: DictConfig) -> None:
     ds = load_dataset_splits(cfg.dataset)
-    model = load_automodelforcausallm(cfg.model)
-    tokenizer = AutoTokenizer.from_pretrained(cfg.model.model_cfg.name, padding_side="left")
-    generation_config = cfg.generation_config
-    batch_size = cfg.batch_size
+    model = load_automodelforcausallm(cfg.inference)
+    tokenizer = AutoTokenizer.from_pretrained(cfg.inference.model_cfg.name, padding_side="left")
+    generation_config = cfg.inference.generation_config
+    batch_size = cfg.inference.batch_size
 
     completer = AbstractCompleter(model=model,
                                   tokenizer=tokenizer,
