@@ -1,0 +1,10 @@
+defaults:
+  - dataset: full
+  - inference: infer
+  - _self_
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${inference.model_cfg.name}
+  job:
+    chdir: false
