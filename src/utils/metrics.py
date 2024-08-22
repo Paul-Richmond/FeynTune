@@ -18,7 +18,7 @@ def compute_perplexities(logits, labels):
 def metric_perplexity(eval_pred):
     processed_logits = eval_pred.predictions
     ppls = processed_logits.tolist()
-    return {"perplexities": ppls, "loss": np.mean(ppls)}
+    return {"mean_batch_perplexity": np.mean(ppls)}
 
 
 def perplexity_batch(logits, labels, compute_result=False):
