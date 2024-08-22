@@ -1,6 +1,4 @@
-name: meta-llama/Meta-Llama-3-8B
+name: meta-llama/Meta-Llama-3.1-8B
 tokenizer_args:
   padding: do_not_pad
   truncation: do_not_truncate
-post_processing:
-  add_labels: true
