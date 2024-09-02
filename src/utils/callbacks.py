@@ -8,12 +8,18 @@ logger = logging.get_logger(__name__)
 
 
 class AbstractCompleter:
-    def __init__(self, model, tokenizer, dataset, batch_size=None, generation_config=None):
+    def __init__(self, model, tokenizer, dataset, batch_size=None, generation_config=None, col_to_tokenize=None):
         super().__init__()
         self.model = model
+
         self.tokenizer = tokenizer
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.original_pad_side = tokenizer.padding_side
+
         self.dataset = dataset
         self.batch_size = 16 if batch_size is None else batch_size
+
         if generation_config is None:
             self.generation_config = {
                 "temperature": 0.7,
@@ -28,17 +34,13 @@ class AbstractCompleter:
         else:
             self.generation_config = generation_config
 
-        self.tokenizer.pad_token = tokenizer.eos_token
-        self.original_pad_side = tokenizer.padding_side
-        self.label = 'abstract'
+        self.label = 'abstract' if col_to_tokenize is None else col_to_tokenize
 
     def _predict(self, batch):
         texts = batch['prompt']
         self.tokenizer.padding_side = 'left'
         model_inputs = self.tokenizer(texts,
                                       padding='longest',
-                                      truncation=True,
-                                      max_length=min(2048, self.tokenizer.model_max_length),
                                       pad_to_multiple_of=8,
                                       add_special_tokens=False,
                                       return_tensors="pt").to(self.model.device)
