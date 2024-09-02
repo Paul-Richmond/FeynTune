@@ -37,7 +37,8 @@ def main(cfg: DictConfig) -> None:
         logger.info(f"You have not set a value for wandb_runpath, initializing using wandb.init() instead.")
         run = wandb.init()
 
-    ds = load_dataset_splits(cfg.dataset)
+    ds = load_dataset_splits(cfg.dataset)  # expect DatasetDict object with a single key
+    ds = ds[list(ds)[0]]  # extract the single Dataset object from the DatasetDict object
     model = load_automodelforcausallm(cfg.inference)
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(cfg.inference.model_cfg.name, padding_side="left")
@@ -46,7 +47,7 @@ def main(cfg: DictConfig) -> None:
 
     completer = AbstractCompleter(model=model,
                                   tokenizer=tokenizer,
-                                  dataset=ds['test'],
+                                  dataset=ds,
                                   batch_size=batch_size,
                                   generation_config=generation_config)
 
