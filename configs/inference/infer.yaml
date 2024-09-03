@@ -1,5 +1,5 @@
 model_cfg:
-  name: meta-llama/Meta-Llama-3-8B
+  name: LLMsForHepth/test_llama_3.1_batch48
   device_map: auto
   trust_remote_code: true
   attn_implementation: flash_attention_2

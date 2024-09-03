@@ -1,10 +1,7 @@
-import json
 from datasets import load_dataset
-from transformers import TrainerCallback, pipeline, logging
+import gc
 from transformers.integrations import WandbCallback
 import torch
-
-logger = logging.get_logger(__name__)
 
 
 class AbstractCompleter:
@@ -34,17 +31,23 @@ class AbstractCompleter:
         else:
             self.generation_config = generation_config
 
+        if self.generation_config.get("pad_token_id", None) is None:
+            self.generation_config.update({"pad_token_id": self.tokenizer.pad_token_id})
+
         self.label = 'abstract' if col_to_tokenize is None else col_to_tokenize
 
-    def _predict(self, batch):
+    def predict(self, batch):
         texts = batch['prompt']
-        self.tokenizer.padding_side = 'left'
+        self.tokenizer.padding_side = 'left'  # inference needs left padding
+        # clear some memory
+        torch.cuda.empty_cache()
+        gc.collect()
         model_inputs = self.tokenizer(texts,
                                       padding='longest',
                                       pad_to_multiple_of=8,
                                       add_special_tokens=False,
                                       return_tensors="pt").to(self.model.device)
-        outputs = self.model.generate(**model_inputs, **self.generation_config)
+        outputs = self.model.generate(**model_inputs, **self.generation_config).to("cpu")
         batch["predictions"] = self.tokenizer.batch_decode(outputs, skip_special_tokens=True)
         self.tokenizer.padding_side = self.original_pad_side
         return batch
@@ -52,7 +55,7 @@ class AbstractCompleter:
     def get_predictions(self):
         self.dataset = self.dataset.map(lambda example: {'prompt': example[self.label][:len(example[self.label]) // 2]},
                                         desc='Generating prompts')
-        self.dataset = self.dataset.map(self._predict,
+        self.dataset = self.dataset.map(self.predict,
                                         batched=True,
                                         batch_size=self.batch_size,
                                         desc='Generating model output')

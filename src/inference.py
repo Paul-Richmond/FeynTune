@@ -39,6 +39,7 @@ def main(cfg: DictConfig) -> None:
 
     ds = load_dataset_splits(cfg.dataset)  # expect DatasetDict object with a single key
     ds = ds[list(ds)[0]]  # extract the single Dataset object from the DatasetDict object
+    ds = ds.remove_columns(set(ds.column_names) - {'abstract'})
     model = load_automodelforcausallm(cfg.inference)
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(cfg.inference.model_cfg.name, padding_side="left")
