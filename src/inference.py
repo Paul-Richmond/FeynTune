@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import huggingface_hub
 import hydra
 import logging
-from omegaconf import DictConfig, MissingMandatoryValue
+from omegaconf import DictConfig, MissingMandatoryValue, OmegaConf
 from transformers import AutoTokenizer
 import wandb
 
@@ -43,7 +43,7 @@ def main(cfg: DictConfig) -> None:
     model = load_automodelforcausallm(cfg.inference)
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(cfg.inference.model_cfg.name, padding_side="left")
-    generation_config = cfg.inference.generation_config
+    generation_config = OmegaConf.to_container(cfg.inference.generation_cfg, resolve=True)
     batch_size = cfg.inference.batch_size
 
     completer = AbstractCompleter(model=model,
