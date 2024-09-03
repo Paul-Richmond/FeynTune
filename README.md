@@ -74,7 +74,13 @@ whose key feature is
 > the ability to dynamically create a hierarchical configuration
 > by composition and override it through config files and the command line.
 
-TO BE FINISHED
+For example to change the model and tokenizer to be `gemma-2-9b` rather than 
+the current default `Llama-3.1-8B` we would run
+```bash
+python3 src/finetune.py model.model_cfg.name=google/gemma-2-9b \
+                        tokenizer.name=google/gemma-2-9b \
+                        training.training_args_cfg.run_name=gemma2
+```
 
 # Recommencing training from a checkpoint
 
