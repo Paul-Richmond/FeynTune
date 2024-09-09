@@ -39,11 +39,14 @@ def main(cfg: DictConfig) -> None:
 
     ds = load_dataset_splits(cfg.dataset)  # expect DatasetDict object with a single key
     ds = ds[list(ds)[0]]  # extract the single Dataset object from the DatasetDict object
-    ds = ds.remove_columns(set(ds.column_names) - {'abstract'})
+    ds = ds.remove_columns(list(set(ds.column_names) - {'id', 'abstract'}))  # keep only 'id' and 'abstract' columns
     model = load_automodelforcausallm(cfg.inference)
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(cfg.inference.model_cfg.name, padding_side="left")
-    generation_config = OmegaConf.to_container(cfg.inference.generation_cfg, resolve=True)
+    if 'generation_cfg' in cfg.inference.keys():
+        generation_config = OmegaConf.to_container(cfg.inference.generation_cfg, resolve=True)
+    else:
+        generation_config = None
     batch_size = cfg.inference.batch_size
 
     completer = AbstractCompleter(model=model,
@@ -53,8 +56,10 @@ def main(cfg: DictConfig) -> None:
                                   generation_config=generation_config)
 
     ds_with_completions = completer.get_predictions()
-    table = wandb.Table(dataframe=ds_with_completions.to_pandas())
-    run.log({"predictions": table})
+    inference_table = wandb.Table(dataframe=ds_with_completions.to_pandas())
+    gen_cfg_table = wandb.Table(columns=list(completer.generation_config.keys()),
+                                data=list(completer.generation_config.values()))
+    run.log({"inference": inference_table, "inference_gen_cfg": gen_cfg_table})
 
 
 if __name__ == "__main__":

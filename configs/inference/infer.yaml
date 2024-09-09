@@ -1,24 +1,25 @@
 model_cfg:
   name: LLMsForHepth/test_llama_3.1_batch48
   device_map: auto
-  trust_remote_code: true
-  attn_implementation: flash_attention_2
+  torch_dtype: float16
+#  trust_remote_code: true
+#  attn_implementation: flash_attention_2
 
-bnb_cfg:
-  bnb_4bit_compute_dtype: bfloat16
-  bnb_4bit_quant_storage: null
-  bnb_4bit_quant_type: nf4
-  bnb_4bit_use_double_quant: true
-  load_in_4bit: true
+#bnb_cfg:
+#  bnb_4bit_compute_dtype: bfloat16
+#  bnb_4bit_quant_storage: null
+#  bnb_4bit_quant_type: nf4
+#  bnb_4bit_use_double_quant: true
+#  load_in_4bit: true
 
-generation_cfg:
-  # see https://huggingface.co/docs/transformers/main/en/main_classes/text_generation
-  temperature: 0.3
-  do_sample: true
-  max_new_tokens: 1024
-  max_time: 30
+#generation_cfg:
+#  # see https://huggingface.co/docs/transformers/main/en/main_classes/text_generation
+#  temperature: 0.3
+#  do_sample: true
+#  max_new_tokens: 1024
+#  max_time: 30
 
-batch_size: 32
+batch_size: 8
 
 # see https://docs.wandb.ai/guides/track/public-api-guide#find-the-run-path
 wandb_runpath: ???  # always in the format <entity>/<project>/<run_id>
