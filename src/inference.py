@@ -1,14 +1,16 @@
+import gc
+import logging
 import os
 
-from dotenv import load_dotenv
 import huggingface_hub
 import hydra
-import logging
+import torch
+import wandb
+from dotenv import load_dotenv
 from omegaconf import DictConfig, MissingMandatoryValue, OmegaConf
 from transformers import AutoTokenizer
-import wandb
 
-from utils.callbacks import AbstractCompleter
+from utils.callbacks import AbstractCompleter, SemsScore
 from utils.instantiators import load_automodelforcausallm, load_dataset_splits
 
 load_dotenv()
@@ -56,9 +58,23 @@ def main(cfg: DictConfig) -> None:
                                   generation_config=generation_config)
 
     ds_with_completions = completer.get_predictions()
+    gen_cfg_to_log = completer.generation_config
+
+    # Tidy up before computing SemScore
+    del model, tokenizer, completer, ds
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    # Score the predictions
+    semscorer = SemsScore()
+    sem_scores = semscorer.get_similarities(ds_with_completions['y_true'],
+                                            ds_with_completions['y_pred'])
+    ds_with_completions = ds_with_completions.add_column(name='SemScore', column=sem_scores)
+
+    # Log to wandb
     inference_table = wandb.Table(dataframe=ds_with_completions.to_pandas())
-    gen_cfg_table = wandb.Table(columns=list(completer.generation_config.keys()),
-                                data=list(completer.generation_config.values()))
+    gen_cfg_table = wandb.Table(columns=list(gen_cfg_to_log.keys()),
+                                data=[list(gen_cfg_to_log.values())])
     run.log({"inference": inference_table, "inference_gen_cfg": gen_cfg_table})
 
 
