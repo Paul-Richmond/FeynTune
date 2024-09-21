@@ -1,4 +1,4 @@
-name: LLMsForHepth/hepth_primary_cleaned
+name: LLMsForHepth/hep-th_primary
 splits:
   train: train
   test: test
