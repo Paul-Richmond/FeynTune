@@ -65,7 +65,9 @@ def split_abstracts(example):
 def save_dict_to_json(data, directory, filename):
     # Create the directory if it doesn't exist
     os.makedirs(directory, exist_ok=True)
-
+    # Check filename has extension and add if not
+    if not filename.endswith('.json'):
+        filename += '.json'
     # Construct the full file path
     file_path = os.path.join(directory, filename)
 
