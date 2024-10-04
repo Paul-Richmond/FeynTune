@@ -5,6 +5,6 @@ defaults:
 
 hydra:
   run:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${inference.model_cfg.name}
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
   job:
     chdir: false

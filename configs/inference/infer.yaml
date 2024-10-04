@@ -1,25 +1,24 @@
-model_cfg:
-  name: LLMsForHepth/test_llama_3.1_batch48
-  device_map: auto
-  torch_dtype: float16
-#  trust_remote_code: true
-#  attn_implementation: flash_attention_2
+base_model_name: meta-llama/Meta-Llama-3.1-8B
+lora_adapter_name: LLMsForHepth/s1-L-3.1-8B-base
 
-#bnb_cfg:
-#  bnb_4bit_compute_dtype: bfloat16
-#  bnb_4bit_quant_storage: null
-#  bnb_4bit_quant_type: nf4
-#  bnb_4bit_use_double_quant: true
-#  load_in_4bit: true
-
-#generation_cfg:
-#  # see https://huggingface.co/docs/transformers/main/en/main_classes/text_generation
-#  temperature: 0.3
-#  do_sample: true
-#  max_new_tokens: 1024
-#  max_time: 30
-
-batch_size: 8
+#model_cfg:  # see https://docs.vllm.ai/en/latest/dev/offline_inference/llm.html
+#  # can also pass any of https://docs.vllm.ai/en/latest/models/engine_args.html#engine-args
+#  dtype: auto # default
+#  max_num_batched_tokens: 1024 # default is 512
+#
+generation_cfg:
+  # see https://docs.vllm.ai/en/latest/dev/sampling_params.html
+  max_tokens: 1024
+  min_tokens: 48
+  #  temperature: 0.7
+  #  repetition_penalty: 1.0
+  #  top_k: 100
+  #  top_p: 0.5
 
 # see https://docs.wandb.ai/guides/track/public-api-guide#find-the-run-path
-wandb_runpath: ???  # always in the format <entity>/<project>/<run_id>
+#wandb_runpath: ???  # always in the format <entity>/<project>/<run_id>
+
+# For outputs
+output_dname: s1-L-3.1-8B-base
+output_dir: /data/scratch/${oc.env:USER}/LLMsForHepth_vllm/${inference.output_dname}
+output_fname: gen_1
