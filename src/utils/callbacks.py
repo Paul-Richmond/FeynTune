@@ -169,7 +169,7 @@ class SimilarityScorer:
     and then calculates cosine similarity between pairs of embeddings.
     """
 
-    def __init__(self, model, tokenizer, batch_size):
+    def __init__(self, model, tokenizer, batch_size, max_length=None):
         """
         Initialize the SimilarityScorer.
 
@@ -177,6 +177,7 @@ class SimilarityScorer:
             model: The pre-trained model to use for computing embeddings.
             tokenizer: The tokenizer associated with the model.
             batch_size (int): The number of examples to process in each batch.
+            max_length (int or None): The maximum number of tokens to compute embeddings.
         """
         self.model = model
         self.tokenizer = tokenizer
@@ -188,7 +189,7 @@ class SimilarityScorer:
 
         self.tokenizer.padding_side = 'right'  # pad right as we might truncate in get_embeddings
         self.tokenizer.truncation_side = 'right'  # make sure this is consistent with padding_side
-        self.max_length = tokenizer.model_max_length
+        self.max_length = tokenizer.model_max_length if max_length is None else max_length
 
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
 
@@ -221,6 +222,7 @@ class SimilarityScorer:
         """
         encoded_input = self.tokenizer(batch,
                                        padding=True,
+                                       pad_to_multiple_of=8,
                                        truncation=True,
                                        max_length=self.max_length,
                                        return_tensors='pt').to(self.device)
