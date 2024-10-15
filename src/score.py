@@ -11,31 +11,34 @@ from transformers import (AutoTokenizer,
                           AutoModelForCausalLM)
 from datasets import Dataset
 from statistics import mean
-from utils.callbacks import SimilarityScorer, SemsScore
+from utils.callbacks import SimilarityScorer
 
 load_dotenv()
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
 huggingface_hub.login(token=hf_token)
 
+# Create a logger and set level to INFO.
 logger = logging.getLogger(__name__)
+logging.basicConfig()
+logger.setLevel(logging.INFO)
 
 model_cfg_big = {'device_map': 'auto',
                  'trust_remote_code': True,
                  'attn_implementation': 'flash_attention_2',
                  'torch_dtype': torch.bfloat16}
 
-model_cfg = {"attn_implementation": "sdpa",
+model_cfg = {"attn_implementation": "eager",
              "trust_remote_code": True,
-             "use_flash_attn": False,
              "quantization_config": None,
              }
 
-scorers = [{'model_repo': None, 'model_cls': AutoModelForCausalLM, 'model_cfg': model_cfg_big,
-            'batch_size': 16},
+scorers = [{'model_repo': None, 'model_cls': AutoModelForCausalLM,
+            'model_cfg': model_cfg_big, 'batch_size': 16, 'max_length': None},
            {'model_repo': "sentence-transformers/all-mpnet-base-v2",
             'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 256, 'max_length': 384},
            {'model_repo': "jinaai/jina-embeddings-v3",
-            'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 256}]
+            'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 256, 'max_length': 8192}
+           ]
 
 
 def clear_cache():
@@ -88,7 +91,8 @@ if __name__ == "__main__":
         logger.error("JSON data could not be loaded")
         sys.exit(1)
 
-    scorers[0]['model_repo'] = json_data['model']
+    if scorers[0].get('model_repo') is None:
+        scorers[0]['model_repo'] = json_data['model']
 
     ds_dict = {k: v for k, v in json_data.items() if k in ['prompts', 'y_pred', 'y_true']}
     ds = Dataset.from_dict(ds_dict)
@@ -103,11 +107,12 @@ if __name__ == "__main__":
         model_cls = model_dict['model_cls']
         model_cfg = model_dict['model_cfg']
         batch_size = model_dict['batch_size']
+        max_length = model_dict['max_length']
 
         model = model_cls.from_pretrained(model_repo, **model_cfg)
         tokenizer = AutoTokenizer.from_pretrained(model_repo)
 
-        scorer = SimilarityScorer(model, tokenizer, batch_size)
+        scorer = SimilarityScorer(model, tokenizer, batch_size, max_length)
 
         model_scores = scorer.get_similarities(ds['abstract_true'], ds['abstract_pred'])
         mean_model_scores = mean(model_scores)
