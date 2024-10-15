@@ -114,6 +114,7 @@ if __name__ == "__main__":
 
         scorer = SimilarityScorer(model, tokenizer, batch_size, max_length)
 
+        logger.info(f"Scoring using {model_name} model")
         model_scores = scorer.get_similarities(ds['abstract_true'], ds['abstract_pred'])
         mean_model_scores = mean(model_scores)
         json_data.update({model_name: {'cos_similarities': model_scores,

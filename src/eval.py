@@ -20,11 +20,11 @@ load_dotenv()
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
 huggingface_hub.login(token=hf_token)
 
-QUANT_CFG = BitsAndBytesConfig(**{'bnb_4bit_compute_dtype': torch.bfloat16,
-                                  'bnb_4bit_quant_storage': None,
-                                  'bnb_4bit_quant_type': 'nf4',
-                                  'bnb_4bit_use_double_quant': True,
-                                  'load_in_4bit': True})
+QUANT_CFG = BitsAndBytesConfig(bnb_4bit_compute_dtype=torch.bfloat16,
+                               bnb_4bit_quant_storage=None,
+                               bnb_4bit_quant_type='nf4',
+                               bnb_4bit_use_double_quant=True,
+                               load_in_4bit=True)
 
 MODEL_CFG = {'device_map': 'auto',
              'trust_remote_code': True,
