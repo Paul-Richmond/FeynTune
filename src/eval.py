@@ -30,7 +30,10 @@ TRAINING_ARGS = {'output_dir': "tmp_trainer",
                  'report_to': 'none',
                  'logging_steps': 1}
 
+# Create a logger and set level to INFO.
 logger = logging.getLogger(__name__)
+logging.basicConfig()
+logger.setLevel(logging.INFO)
 
 
 def load_json_file(filename):
