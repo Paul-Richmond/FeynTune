@@ -10,7 +10,8 @@ from transformers import (AutoTokenizer,
                           AutoModelForCausalLM,
                           Trainer,
                           TrainingArguments,
-                          DataCollatorForSeq2Seq)
+                          DataCollatorForSeq2Seq,
+                          BitsAndBytesConfig)
 from datasets import Dataset
 
 from utils.metrics import compute_perplexities, metric_perplexity
@@ -18,6 +19,12 @@ from utils.metrics import compute_perplexities, metric_perplexity
 load_dotenv()
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
 huggingface_hub.login(token=hf_token)
+
+QUANT_CFG = BitsAndBytesConfig(**{'bnb_4bit_compute_dtype': torch.bfloat16,
+                                  'bnb_4bit_quant_storage': None,
+                                  'bnb_4bit_quant_type': 'nf4',
+                                  'bnb_4bit_use_double_quant': True,
+                                  'load_in_4bit': True})
 
 MODEL_CFG = {'device_map': 'auto',
              'trust_remote_code': True,
@@ -88,7 +95,8 @@ if __name__ == "__main__":
                 batched=False)
 
     model_name = json_data['model']
-    model = AutoModelForCausalLM.from_pretrained(json_data['model'], **MODEL_CFG)
+    model = AutoModelForCausalLM.from_pretrained(json_data['model'], **MODEL_CFG,
+                                                 quantization_config=QUANT_CFG)
     tokenizer = AutoTokenizer.from_pretrained(json_data['model'])
 
     tokenised_ds = ds.map(lambda examples: tokenizer(examples['abstract_pred'],
@@ -126,4 +134,3 @@ if __name__ == "__main__":
     del trainer
     torch.cuda.empty_cache()
     gc.collect()
-
