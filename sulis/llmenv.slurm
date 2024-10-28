@@ -19,7 +19,8 @@ srun python3 -m venv ~/vllm_take2
 source ~/vllm_take2/bin/activate
 
 srun python3 -m pip install --upgrade pip
-srun python3 -m pip install -r ~/repos/hepthLlama/sulis/vllm3_freeze.txt
+cd ~/repos/hepthLlama/sulis/
+srun python3 -m pip install -r vllm3_freeze.txt
 srun python3 -m pip install --upgrade accelerate==0.34.2
 
 srun python3 -m torch.utils.collect_env
