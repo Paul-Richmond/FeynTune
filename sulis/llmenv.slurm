@@ -22,6 +22,7 @@ srun python3 -m pip install --upgrade pip
 cd ~/repos/hepthLlama/sulis/
 srun python3 -m pip install -r vllm3_freeze.txt
 srun python3 -m pip install --upgrade accelerate==0.34.2 
+srun python3 -m pip install --upgrade wheel setuptools
 srun python3 -m pip install --upgrade flash-attn==2.6.3 --no-build-isolation
 
 srun python3 -m torch.utils.collect_env
