@@ -34,8 +34,7 @@ cd ~/repos/hepthLlama/src/
 # Run meta-llama/Meta-Llama-3.1-8B on LLMsForHepth/hep-th_primary test set
 srun python3 infer.py ~dataset.splits.train=train \
 ~inference.lora_adapter_name \
-inference.output_dir=/hepthLlama_output/Meta-Llama-3.1-8B
-inference.output_dname=??? \
+inference.output_dname=Meta-Llama-3.1-8B \
 inference.output_fname=test
 
 ## Run meta-llama/Meta-Llama-3.1-8B on LLMsForHepth/hep-ph_gr-qc_primary test set
