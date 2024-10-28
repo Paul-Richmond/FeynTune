@@ -161,3 +161,8 @@ cython_debug/
 
 # Hydra output folder
 outputs
+hydra_outputs
+
+# Scripts outputs
+/sulis/*.o
+/apocrita/*.o
