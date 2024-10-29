@@ -187,6 +187,8 @@ class SimilarityScorer:
         self.model.to(self.device)
         self.model.eval()
 
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
         self.tokenizer.padding_side = 'right'  # pad right as we might truncate in get_embeddings
         self.tokenizer.truncation_side = 'right'  # make sure this is consistent with padding_side
         self.max_length = tokenizer.model_max_length if max_length is None else max_length
