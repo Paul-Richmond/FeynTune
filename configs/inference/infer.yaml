@@ -20,5 +20,5 @@ generation_cfg:
 
 # For outputs
 output_dname: s1-L-3.1-8B-base
-output_dir: /data/scratch/${oc.env:USER}/LLMsForHepth_vllm/${inference.output_dname}
+output_dir: /hepthLlama_output/${inference.output_dname}
 output_fname: gen_1
