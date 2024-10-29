@@ -33,12 +33,22 @@ model_cfg = {"attn_implementation": "eager",
              }
 
 scorers = [{'model_repo': None, 'model_cls': AutoModelForCausalLM,
-            'model_cfg': model_cfg_big, 'batch_size': 16, 'max_length': None},
+            'model_cfg': model_cfg_big, 'batch_size': 24, 'max_length': None},
            {'model_repo': "sentence-transformers/all-mpnet-base-v2",
-            'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 256, 'max_length': 384},
+            'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 512, 'max_length': 384},
            {'model_repo': "jinaai/jina-embeddings-v3",
-            'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 256, 'max_length': 8192}
+            'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 512, 'max_length': 8192}
            ]
+
+# scorers = [{'model_repo': "sentence-transformers/all-mpnet-base-v2",
+#             'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 512, 'max_length': 384},
+#            {'model_repo': "jinaai/jina-embeddings-v3",
+#             'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 512, 'max_length': 8192}
+#            ]
+
+# scorers = [{'model_repo': "jinaai/jina-embeddings-v3",
+#             'model_cls': AutoModel, 'model_cfg': model_cfg, 'batch_size': 256, 'max_length': 8192}
+#            ]
 
 
 def clear_cache():
