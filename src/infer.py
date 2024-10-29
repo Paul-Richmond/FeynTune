@@ -25,6 +25,8 @@ huggingface_hub.login(token=hf_token)
 wandb.login(key=wandb_token)
 
 logger = logging.getLogger(__name__)
+logging.basicConfig()
+logger.setLevel(logging.INFO)
 
 
 def split_abstracts(example):
