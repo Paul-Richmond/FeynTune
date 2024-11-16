@@ -1,21 +1,16 @@
-import gc
 import logging
-import json
 import os
 import re
 
 import huggingface_hub
 import hydra
-import torch
 import wandb
 from dotenv import load_dotenv
-from omegaconf import DictConfig, MissingMandatoryValue, OmegaConf
-from transformers import AutoTokenizer
+from omegaconf import DictConfig, OmegaConf
 from vllm import LLM, SamplingParams
 from vllm.lora.request import LoRARequest
 
-from utils.callbacks import AbstractCompleter, SemsScore
-from utils.instantiators import load_automodelforcausallm, load_dataset_splits
+from utils.io import load_dataset_splits, save_dict_to_json
 
 load_dotenv()
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
@@ -62,22 +57,6 @@ def split_abstracts(example):
         prompt = ' '.join(words[:split_point])
         y_true = ' '.join(words[split_point:])
     return {'prompt': prompt, 'y_true': y_true}
-
-
-def save_dict_to_json(data, directory, filename):
-    # Create the directory if it doesn't exist
-    os.makedirs(directory, exist_ok=True)
-    # Check filename has extension and add if not
-    if not filename.endswith('.json'):
-        filename += '.json'
-    # Construct the full file path
-    file_path = os.path.join(directory, filename)
-
-    # Write the dictionary to a JSON file
-    with open(file_path, 'w') as f:
-        json.dump(data, f, indent=4)
-
-    logger.info(f"Dictionary saved to {file_path}")
 
 
 @hydra.main(version_base=None, config_path="../configs", config_name="default_infer")
