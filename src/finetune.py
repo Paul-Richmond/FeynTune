@@ -11,8 +11,8 @@ from utils.instantiators import (load_automodelforcausallm,
                                  load_optimizer,
                                  load_tokenizer,
                                  instantiate_callbacks,
-                                 load_dataset_splits,
                                  instantiate_training)
+from utils.io import load_dataset_splits
 from utils.metrics import compute_perplexities, metric_perplexity
 
 load_dotenv()
