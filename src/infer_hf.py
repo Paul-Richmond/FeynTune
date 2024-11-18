@@ -1,13 +1,11 @@
 import logging
 import os
-import gc
 
 import huggingface_hub
 import hydra
 import wandb
 from dotenv import load_dotenv
 from omegaconf import DictConfig, OmegaConf
-from datasets import load_dataset
 import torch
 from torch.utils.data import DataLoader
 from transformers import (AutoTokenizer,
@@ -29,7 +27,9 @@ logging.basicConfig()
 logger.setLevel(logging.INFO)
 
 gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)  # in Gb
-initial_batch_size = 192  # 'LLMsForHepth/hep-th_primary' uses 73,070 Mb on H100 with batch size 192
+initial_batch_size = 192
+# Meta-Llama-3.1-8B and hep-th_primary uses 73,070 Mb on H100 with batch size 192
+# s1-L-3.1-8B-base and hep-th_primary uses 75,873 Mb on H100 with batch size 192
 
 if gpu_memory > 42.0:  # probably on 80Gb
     batch_size = initial_batch_size
@@ -37,9 +37,6 @@ elif gpu_memory > 35.0:  # probably on 40Gb
     batch_size = int(initial_batch_size / 2)
 else:
     batch_size = int(initial_batch_size / 4)
-
-dataset_name = 'LLMsForHepth/hep-th_primary'
-model_name = 'meta-llama/Meta-Llama-3.1-8B'
 
 model_cfg = {"attn_implementation": "sdpa",  # "flash_attention_2" doesn't work with torch.compile
              "device_map": "auto",
@@ -50,24 +47,20 @@ dataloader_params = {"batch_size": batch_size,
                      "pin_memory": True,
                      "persistent_workers": False,
                      }
-generation_config = {'max_new_tokens': 1024,
-                     'temperature': 0.3,
-                     'max_time': 30,
-                     'top_p': 0.1,
-                     'do_sample': True,
-                     }
 
 
-def main():
-    ds = load_dataset(dataset_name, split='test')
+@hydra.main(version_base=None, config_path="../configs", config_name="default_infer")
+def main(cfg: DictConfig) -> None:
+    ds = load_dataset_splits(cfg.dataset)  # expect DatasetDict object with a single key
+    ds_split_names = list(ds)
+    ds = ds[list(ds)[0]]  # extract the single Dataset object from the DatasetDict object
     ds = ds.map(split_abstracts,
                 batched=False,
                 desc='Splitting abstracts')
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(cfg.inference.model_name)
     tokenizer.padding_side = "left"  # left pad for inference
     tokenizer.pad_token = tokenizer.eos_token if tokenizer.pad_token is None else tokenizer.pad_token
-    generation_config['pad_token_id'] = tokenizer.pad_token_id
     tokenised_ds = ds.map(lambda examples: tokenizer(examples['prompt'],
                                                      padding='do_not_pad',
                                                      truncation='do_not_truncate',
@@ -91,24 +84,26 @@ def main():
     dataloader_params['collate_fn'] = data_collator
     dataloader = DataLoader(tokenised_ds, **dataloader_params)
 
-    model = AutoModelForCausalLM.from_pretrained(model_name, **model_cfg)
+    model = AutoModelForCausalLM.from_pretrained(cfg.inference.model_name, **model_cfg)
     model.generation_config.cache_implementation = "static"
     model = torch.compile(model, mode='reduce-overhead', fullgraph=True)
 
-    output_dict = {'model': model_name.split('/')[-1],
-                   'dataset': dataset_name.split('/')[-1],
+    generation_cfg = OmegaConf.to_container(cfg.inference.generation_cfg, resolve=True)
+    generation_cfg['pad_token_id'] = tokenizer.pad_token_id
+    output_dict = {'model': cfg.inference.model_name.split('/')[-1],
+                   'dataset': {'name': cfg.dataset.name, 'splits': ds_split_names[0]},
                    'ids': sorted_ids,
                    'prompts': sorted_prompts,
-                   'generation_config': generation_config,
+                   'generation_config': generation_cfg,
                    }
-    filename = f"hf_{output_dict['model']}_{output_dict['dataset']}"
+
     predictions = []
     model.eval()
     for idx, batch in enumerate(dataloader):
         logger.info(f"Generating batch {idx}")
-        with torch.no_grad():
+        with torch.inference_mode():
             batch.to(model.device)
-            outputs_tok = model.generate(**batch, **generation_config)
+            outputs_tok = model.generate(**batch, **generation_cfg)
             batch_predictions = tokenizer.batch_decode(outputs_tok, skip_special_tokens=True)
             predictions.extend(batch_predictions)
             output_dict['predictions'] = predictions
@@ -116,13 +111,13 @@ def main():
 
         if idx % 10 == 0:  # save every 10 batches
             save_dict_to_json(data=output_dict,
-                              directory='infer_hf_outputs',
-                              filename=filename)
+                              directory=cfg.inference.output_dir,
+                              filename=cfg.inference.output_fname)
 
     output_dict['batch'] = 'end of inference'
     save_dict_to_json(data=output_dict,
-                      directory='infer_hf_outputs',
-                      filename=filename)
+                      directory=cfg.inference.output_dir,
+                      filename=cfg.inference.output_fname)
 
 
 if __name__ == '__main__':
