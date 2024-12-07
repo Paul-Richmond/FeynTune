@@ -9,7 +9,7 @@ import huggingface_hub
 from transformers import (AutoTokenizer,
                           AutoModel,
                           AutoModelForCausalLM)
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 from statistics import mean
 from utils.callbacks import SimilarityScorer
 
@@ -87,49 +87,30 @@ def save_dict_to_json(data, directory, filename):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python script_name.py <json_file_path>")
-        sys.exit(1)
+    # choose an initial dataset from LLMsForHepth/infer_hep_th or LLMsForHepth/infer_hep-ph_gr-qc
+    # subsequent runs need LLMsForHepth/llm_scores_hep_th etc
+    ds = load_dataset('LLMsForHepth/llm_scores_hep-ph_gr-qc', split='test')
+    y_true = ds['abstract']
+    comp_columns = [col_name for col_name in ds.column_names if 'comp_Llama-3.1-8B' in col_name]
 
-    json_file_path = sys.argv[1]
-    json_data = load_json_file(json_file_path)
-    fdirectory, fname = os.path.split(json_file_path)
+    model_repo = 'meta-llama/Llama-3.1-8B'
+    model = AutoModel.from_pretrained(model_repo,
+                                      device_map='auto',
+                                      attn_implementation='flash_attention_2',
+                                      trust_remote_code=True,
+                                      torch_dtype=torch.bfloat16)
+    tokenizer = AutoTokenizer.from_pretrained(model_repo)
 
-    if json_data is not None:
-        logger.info("JSON data loaded successfully:")
-    else:
-        logger.error("JSON data could not be loaded")
-        sys.exit(1)
+    scorer = SimilarityScorer(model, tokenizer, batch_size=24)
 
-    if scorers[0].get('model_repo') is None:
-        scorers[0]['model_repo'] = json_data['model']
+    for col in comp_columns:
+        logger.info(f"Scoring using y_pred={col}")
+        y_pred = ds[col]
 
-    ds_dict = {k: v for k, v in json_data.items() if k in ['prompts', 'y_pred', 'y_true']}
-    ds = Dataset.from_dict(ds_dict)
-    ds = ds.map(lambda x: {'abstract_pred': x['prompts'] + ' ' + x['y_pred'],
-                           'abstract_true': x['prompts'] + ' ' + x['y_true']},
-                batched=False)
-
-    for model_dict in scorers:
-        model_repo = model_dict['model_repo']
-        model_name = model_repo.split('/')[-1]
-        model_name = 'SemScore' if model_name == 'all-mpnet-base-v2' else model_name
-        model_cls = model_dict['model_cls']
-        model_cfg = model_dict['model_cfg']
-        batch_size = model_dict['batch_size']
-        max_length = model_dict['max_length']
-
-        model = model_cls.from_pretrained(model_repo, **model_cfg)
-        tokenizer = AutoTokenizer.from_pretrained(model_repo)
-
-        scorer = SimilarityScorer(model, tokenizer, batch_size, max_length)
-
-        logger.info(f"Scoring using {model_name} model")
-        model_scores = scorer.get_similarities(ds['abstract_true'], ds['abstract_pred'])
-        mean_model_scores = mean(model_scores)
-        json_data.update({model_name: {'cos_similarities': model_scores,
-                                       'mean_cos_similarities': mean_model_scores}
-                          })
-        save_dict_to_json(json_data, fdirectory, fname)
+        scores = scorer.get_similarities(y_true, y_pred)
+        ds = ds.add_column(name=f"score_{col[5:]}", column=scores)
 
         clear_cache()
+
+    ds.push_to_hub('LLMsForHepth/llm_scores_hep-ph_gr-qc', split='test')
+    huggingface_hub.logout()

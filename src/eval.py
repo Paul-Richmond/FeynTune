@@ -12,30 +12,13 @@ from transformers import (AutoTokenizer,
                           TrainingArguments,
                           DataCollatorForSeq2Seq,
                           BitsAndBytesConfig)
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 
 from utils.metrics import compute_perplexities, metric_perplexity
 
 load_dotenv()
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
 huggingface_hub.login(token=hf_token)
-
-QUANT_CFG = BitsAndBytesConfig(bnb_4bit_compute_dtype=torch.bfloat16,
-                               bnb_4bit_quant_storage=None,
-                               bnb_4bit_quant_type='nf4',
-                               bnb_4bit_use_double_quant=True,
-                               load_in_4bit=True)
-
-MODEL_CFG = {'device_map': 'auto',
-             'trust_remote_code': True,
-             'attn_implementation': 'flash_attention_2',
-             'torch_dtype': torch.bfloat16}
-
-TRAINING_ARGS = {'output_dir': "tmp_trainer",
-                 'bf16': True,
-                 'per_device_eval_batch_size': 16,
-                 'report_to': 'none',
-                 'logging_steps': 1}
 
 # Create a logger and set level to INFO.
 logger = logging.getLogger(__name__)
@@ -74,32 +57,20 @@ def save_dict_to_json(data, directory, filename):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python script_name.py <json_file_path>")
-        sys.exit(1)
+    ds_repo = ''
+    ds_col = ''
+    model_repo = ''
 
-    json_file_path = sys.argv[1]
-    json_data = load_json_file(json_file_path)
-    fdirectory, fname = os.path.split(json_file_path)
+    ds = load_dataset(ds_repo, split='test')
 
-    if json_data is not None:
-        logger.info("JSON data loaded successfully:")
-    else:
-        logger.error("JSON data could not be loaded")
-        sys.exit(1)
+    model = AutoModelForCausalLM.from_pretrained(model_repo,
+                                                 device_map='auto',
+                                                 trust_remote_code=True,
+                                                 attn_implementation='flash_attention_2',
+                                                 torch_dtype='bfloat16')
+    tokenizer = AutoTokenizer.from_pretrained(model_repo)
 
-    ds_dict = {k: v for k, v in json_data.items() if k in ['prompts', 'y_pred', 'y_true']}
-    ds = Dataset.from_dict(ds_dict)
-    ds = ds.map(lambda x: {'abstract_pred': x['prompts'] + ' ' + x['y_pred'],
-                           'abstract_true': x['prompts'] + ' ' + x['y_true']},
-                batched=False)
-
-    model_name = json_data['model']
-    model = AutoModelForCausalLM.from_pretrained(json_data['model'], **MODEL_CFG,
-                                                 quantization_config=QUANT_CFG)
-    tokenizer = AutoTokenizer.from_pretrained(json_data['model'])
-
-    tokenised_ds = ds.map(lambda examples: tokenizer(examples['abstract_pred'],
+    tokenised_ds = ds.map(lambda examples: tokenizer(examples[ds_col],
                                                      padding='do_not_pad',
                                                      truncation='do_not_truncate'),
                           batched=True,
@@ -109,7 +80,12 @@ if __name__ == "__main__":
                                     batched=True,
                                     desc="Adding labels")
 
-    training_args = TrainingArguments(**TRAINING_ARGS)
+    training_args = TrainingArguments(output_dir="tmp_trainer",
+                                      bf16=True,
+                                      per_device_eval_batch_size=16,
+                                      report_to=None,
+                                      logging_steps=1)
+
     # why pad_to_multiple_of=8? see https://docs.nvidia.com/deeplearning/performance/mixed-precision-training/index.html#opt-tensor-cores
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer,
                                            pad_to_multiple_of=8)  # dynamically pads a batch to all have same tensor shapes
@@ -129,8 +105,7 @@ if __name__ == "__main__":
                       )
 
     res = trainer.evaluate()
-    json_data.update(res)  # res is a dictionary of metrics
-    save_dict_to_json(json_data, fdirectory, fname)
-    del trainer
-    torch.cuda.empty_cache()
-    gc.collect()
+    print(res)
+    # del trainer
+    # torch.cuda.empty_cache()
+    # gc.collect()
