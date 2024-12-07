@@ -7,6 +7,8 @@ from datasets import load_dataset
 from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer
 from transformers.integrations import WandbCallback
+from .io import save_dict_to_json
+from .processing import split_abstracts
 
 
 class AbstractCompleter:
@@ -288,12 +290,12 @@ class SemsScore(SimilarityScorer):
     Attributes:
         max_length (int): The maximum sequence length for input tokenization.
     """
-    def __init__(self):
+    def __init__(self, batch_size):
         semscore_model = "sentence-transformers/all-mpnet-base-v2"
         model = AutoModel.from_pretrained(semscore_model)
         tokenizer = AutoTokenizer.from_pretrained(semscore_model)
-        batch_size = 256  # fits on a single P100 GPU with 16Gb VRAM
-        super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size)
+        # batch_size = 256 fits on a single P100 GPU with 16Gb VRAM
+        super().__init__(model=model, tokenizer=tokenizer, batch_size=batch_size if batch_size is not None else 256)
         self.max_length = 384  # See the model card at https://huggingface.co/sentence-transformers/all-mpnet-base-v2
 
 
