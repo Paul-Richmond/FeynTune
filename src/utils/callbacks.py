@@ -201,16 +201,16 @@ class SimilarityScorer:
         """
         Compute the mean pooling of the model's output.
 
-        Code taken from https://huggingface.co/sentence-transformers/all-mpnet-base-v2
+        Code adapted from https://huggingface.co/sentence-transformers/all-mpnet-base-v2
 
         Args:
-            model_output: The output of the model.
+            model_output: The output of the model with hidden states.
             attention_mask: The attention mask for the input.
 
         Returns:
             torch.Tensor: The mean-pooled embeddings.
         """
-        token_embeddings = model_output[0]  # First element of model_output contains all token embeddings
+        token_embeddings = model_output['hidden_states'][-1]
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
         return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
 
@@ -230,8 +230,8 @@ class SimilarityScorer:
                                        truncation=True,
                                        max_length=self.max_length,
                                        return_tensors='pt').to(self.device)
-        with torch.no_grad():
-            model_output = self.model(**encoded_input)
+        with torch.inference_mode():
+            model_output = self.model(**encoded_input, output_hidden_states=True)
         batch_embeddings = self.mean_pooling(model_output, encoded_input['attention_mask'])
 
         return batch_embeddings
