@@ -1,18 +1,13 @@
-import sys
 import logging
-import json
 import os
-import gc
-import torch
 from dotenv import load_dotenv
 import huggingface_hub
 from transformers import (AutoTokenizer,
                           AutoModelForCausalLM,
                           Trainer,
                           TrainingArguments,
-                          DataCollatorForSeq2Seq,
-                          BitsAndBytesConfig)
-from datasets import Dataset, load_dataset
+                          DataCollatorForSeq2Seq)
+from datasets import load_dataset
 
 from utils.metrics import compute_perplexities, metric_perplexity
 
@@ -26,40 +21,17 @@ logging.basicConfig()
 logger.setLevel(logging.INFO)
 
 
-def load_json_file(filename):
-    try:
-        with open(filename, 'r') as file:
-            data = json.load(file)
-        return data
-    except FileNotFoundError:
-        logger.error(f'File {filename} not found')
-    except json.JSONDecodeError:
-        logger.error(f"Error: '{filename}' is not a valid JSON file.")
-    except Exception as e:
-        logger.error(f"An unexpected error occurred: {str(e)}")
-    return None
-
-
-def save_dict_to_json(data, directory, filename):
-    # Create the directory if it doesn't exist
-    os.makedirs(directory, exist_ok=True)
-    # Check filename has extension and add if not
-    if not filename.endswith('.json'):
-        filename += '.json'
-    # Construct the full file path
-    file_path = os.path.join(directory, filename)
-
-    # Write the dictionary to a JSON file
-    with open(file_path, 'w') as f:
-        json.dump(data, f, indent=4)
-
-    logger.info(f"Dictionary saved to {file_path}")
-
-
 if __name__ == "__main__":
-    ds_repo = ''
-    ds_col = ''
-    model_repo = ''
+    ds_repo = 'LLMsForHepth/hep-ph_gr-qc_primary'
+    ds_col = 'abstract'
+    model_repo = 'meta-llama/Meta-Llama-3.1-8B'
+    # 'meta-llama/Meta-Llama-3.1-8B'
+    # 'LLMsForHepth/s1-L-3.1-8B-base'
+    # 'LLMsForHepth/s2-L-3.1-8B-base'
+    # 'LLMsForHepth/s3-L-3.1-8B-base_v3'
+    # 'LLMsForHepth/s4-L-3.1-8B-base'
+    # 'LLMsForHepth/s5-L-3.1-8B-base'
+    # 'LLMsForHepth/s6-L-3.1-8B-base'
 
     ds = load_dataset(ds_repo, split='test')
 
@@ -68,7 +40,9 @@ if __name__ == "__main__":
                                                  trust_remote_code=True,
                                                  attn_implementation='flash_attention_2',
                                                  torch_dtype='bfloat16')
+
     tokenizer = AutoTokenizer.from_pretrained(model_repo)
+    tokenizer.pad_token = tokenizer.eos_token if tokenizer.pad_token is None else tokenizer.pad_token
 
     tokenised_ds = ds.map(lambda examples: tokenizer(examples[ds_col],
                                                      padding='do_not_pad',
@@ -104,8 +78,6 @@ if __name__ == "__main__":
                       preprocess_logits_for_metrics=compute_perplexities
                       )
 
+    logger.info(f"Evaluating model {model_repo}")
     res = trainer.evaluate()
     print(res)
-    # del trainer
-    # torch.cuda.empty_cache()
-    # gc.collect()
