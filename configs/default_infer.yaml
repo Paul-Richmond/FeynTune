@@ -1,6 +1,6 @@
 defaults:
   - dataset: full
-  - inference: infer
+  - inference: infer_hf
   - _self_
 
 hydra:

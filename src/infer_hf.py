@@ -3,7 +3,6 @@ import os
 
 import huggingface_hub
 import hydra
-import wandb
 from dotenv import load_dotenv
 from omegaconf import DictConfig, OmegaConf
 import torch
@@ -13,15 +12,13 @@ from transformers import (AutoTokenizer,
                           DataCollatorForSeq2Seq,
                           set_seed)
 
-from utils.io import load_dataset_splits, save_dict_to_json
+from utils.io import load_dataset_splits
 from utils.processing import split_abstracts
 
 load_dotenv()
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
-# wandb_token = os.getenv("WANDB_API_KEY")
 
 huggingface_hub.login(token=hf_token)
-# wandb.login(key=wandb_token)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig()
@@ -30,9 +27,7 @@ logger.setLevel(logging.INFO)
 set_seed(42)
 
 gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)  # in Gb
-initial_batch_size = 192
-# Meta-Llama-3.1-8B and hep-th_primary uses 73,070 Mb on H100 with batch size 192
-# s1-L-3.1-8B-base and hep-th_primary uses 75,873 Mb on H100 with batch size 192
+initial_batch_size = 56
 
 if gpu_memory > 42.0:  # probably on 80Gb
     batch_size = initial_batch_size
@@ -59,7 +54,6 @@ def parse_completions(abstracts, completions):
 @hydra.main(version_base=None, config_path="../configs", config_name="default_infer")
 def main(cfg: DictConfig) -> None:
     ds = load_dataset_splits(cfg.dataset)  # expect DatasetDict object with a single key
-    ds_split_names = list(ds)
     ds = ds[list(ds)[0]]  # extract the single Dataset object from the DatasetDict object
     ds = ds.map(split_abstracts,
                 batched=False,
@@ -78,12 +72,6 @@ def main(cfg: DictConfig) -> None:
                                     batched=True,
                                     desc="Adding labels")
 
-    # tokenised_ds = tokenised_ds.map(lambda example: {"token_num": len(example["input_ids"])},
-    #                                 batched=False,
-    #                                 desc="Getting token counts")
-    # tokenised_ds = tokenised_ds.sort(column_names='token_num', reverse=True)
-    # sorted_ids = tokenised_ds['id']
-    # sorted_prompts = tokenised_ds['prompt']
     tokenised_ds = tokenised_ds.remove_columns(list(set(tokenised_ds.column_names)
                                                     - {'input_ids', 'attention_mask', 'labels'}))
 
@@ -97,12 +85,6 @@ def main(cfg: DictConfig) -> None:
 
     generation_cfg = OmegaConf.to_container(cfg.inference.generation_cfg, resolve=True)
     generation_cfg['pad_token_id'] = tokenizer.pad_token_id
-    # output_dict = {'model': cfg.inference.model_name.split('/')[-1],
-    #                'dataset': {'name': cfg.dataset.name, 'splits': ds_split_names[0]},
-    #                'ids': sorted_ids,
-    #                'prompts': sorted_prompts,
-    #                'generation_config': generation_cfg,
-    #                }
 
     completions = []
     model.eval()
@@ -116,18 +98,7 @@ def main(cfg: DictConfig) -> None:
             outputs_tok = model.generate(**batch, **generation_cfg)
             batch_predictions = tokenizer.batch_decode(outputs_tok, skip_special_tokens=True)
             completions.extend(batch_predictions)
-            # output_dict['predictions'] = predictions
-            # output_dict['batch'] = idx
 
-    #     if idx % 10 == 0:  # save every 10 batches
-    #         save_dict_to_json(data=output_dict,
-    #                           directory=cfg.inference.output_dir,
-    #                           filename=cfg.inference.output_fname)
-    #
-    # output_dict['batch'] = 'end of inference'
-    # save_dict_to_json(data=output_dict,
-    #                   directory=cfg.inference.output_dir,
-    #                   filename=cfg.inference.output_fname)
     y_pred = parse_completions(ds['prompt'], completions)
 
     ds = ds.add_column(name=f"comp_{cfg.inference.model_name.split('/')[-1]}", column=completions)
