@@ -1,17 +1,17 @@
 import argparse
+import gc
 import logging
 import os
-import gc
-import torch
-from torch.utils.data import DataLoader
-from dotenv import load_dotenv
-import huggingface_hub
-from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq
-from datasets import load_dataset
-from tqdm import tqdm
 from typing import Optional, List
 
-from utils.io import save_dict_to_json
+import huggingface_hub
+import torch
+from datasets import load_dataset
+from dotenv import load_dotenv
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq
+
 from utils.metrics import compute_perplexities
 
 load_dotenv()
@@ -39,7 +39,16 @@ ADAPTER_TO_REPO = {'s1': 'LLMsForHepth/s1-L-3.1-8B-base',
                    's10': 'LLMsForHepth/s10-L-3.1-8B-base',
                    's1_qkv': 'LLMsForHepth/s1-L-3.1-8B-qkv_v2',
                    's2_qkv': 'LLMsForHepth/s2-L-3.1-8B-qkv',
+                   's3_qkv': 'LLMsForHepth/s3-L-3.1-8B-qkv',
+                   's4_qkv': 'LLMsForHepth/s4-L-3.1-8B-qkv',
+                   's5_qkv': 'LLMsForHepth/s5-L-3.1-8B-qkv',
+                   's6_qkv': 'LLMsForHepth/s6-L-3.1-8B-qkv',
+                   's7_qkv': 'LLMsForHepth/s7-L-3.1-8B-qkv2',
+                   's8_qkv': 'LLMsForHepth/s8-L-3.1-8B-qkv',
+                   's9_qkv': 'LLMsForHepth/s9-L-3.1-8B-qkv',
+                   's10_qkv': 'LLMsForHepth/s10-L-3.1-8B-qkv',
                    }
+
 
 def validate_adapters(adapters: Optional[List[str]]) -> Optional[List[str]]:
     """
@@ -70,6 +79,7 @@ def validate_adapters(adapters: Optional[List[str]]) -> Optional[List[str]]:
 
     return adapters
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
@@ -79,7 +89,8 @@ def parse_arguments():
     # Optional arguments
     parser.add_argument('-a', '--adapters', nargs='+',
                         help='''Optional. Adapters to use (space-separated list). 
-                        Choose from llama, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s1_qkv, s2_qkv''')
+                        Choose from llama, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, 
+                        s1_qkv, s2_qkv, s3_qkv, s4_qkv, s5_qkv, s6_qkv, s7_qkv, s8_qkv, s9_qkv, s10_qkv,''')
     parser.add_argument('-c', '--column', type=str, default='abstract',
                         help='Dataset column to tokenize (default: abstract)')
     parser.add_argument('-b', '--batch_size', type=int, default=12,
