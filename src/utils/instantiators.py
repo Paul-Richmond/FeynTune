@@ -1,3 +1,22 @@
+"""
+instantiators.py - Utility functions for instantiating and loading components for language model training.
+
+This module provides helper functions to load and configure various components
+needed for training and using language models, including:
+
+- Optimizers configuration (load_optimizer)
+- Causal language model instantiation (load_automodelforcausallm)
+- Tokenizer loading and configuration (load_tokenizer)
+- Training callbacks setup (instantiate_callbacks)
+- Dataset loading and preparation (load_dataset_splits)
+- Training configuration instantiation (instantiate_training)
+
+These functions help standardize the instantiation process across different parts
+of the codebase and handle the complexity of configuring these components with
+appropriate parameters.
+"""
+from typing import Any, Dict, List, Optional, Union
+
 from datasets import DatasetDict, load_dataset
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -10,7 +29,6 @@ from transformers import (AutoModelForCausalLM,
                           PreTrainedTokenizerFast,
                           TrainerCallback
                           )
-from typing import Any, Dict, List, Optional, Union
 
 
 def load_optimizer(optimizer_cfg: DictConfig, model: PreTrainedModel) -> Optimizer:
@@ -59,6 +77,8 @@ def load_automodelforcausallm(cfg: DictConfig) -> Union[PreTrainedModel, PeftMod
 def load_tokenizer(tokenizer_cfg: DictConfig) -> Union[PreTrainedTokenizerFast, AutoTokenizer]:
     """
     Load and configure a tokenizer based on the provided configuration.
+
+    Additionally, fixes an issue with the Llama-3 tokenizer where the BOS & EOS token are not added to the tokenizer.
 
     Args:
         tokenizer_cfg (DictConfig): Configuration for the tokenizer.

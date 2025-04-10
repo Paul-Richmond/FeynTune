@@ -2,154 +2,325 @@
 
 ---
 
-A pipeline for finetuning LLMs on arXiv abstracts using 
-the 🤗 Hugging Face Transformers library. The aim is to 
-have a trained model that is able to complete unseen arXiv
-abstracts. 
+A pipeline for finetuning LLMs on arXiv abstracts using
+the 🤗 Hugging Face Transformers library. The aim is to
+have a trained model that is able to complete unseen hep-th category arXiv
+abstracts.
 
-Uses 4-bit quantization to load model and LoRA (i.e. QLoRA) 
+Uses 4-bit quantization to load model and LoRA (i.e. QLoRA)
 to unfreeze a small percentage of model weights.
 
-During training, the loss that is optimzed is the usual cross-entropy loss, 
-but we also evaluate perplexity on forward passes of both the train 
-and test datasets. In addition, in order to qualitatively measure the 
+During training, the loss that is optimzed is the usual cross-entropy loss,
+but we also evaluate perplexity on forward passes of both the train
+and test datasets. In addition, in order to qualitatively measure the
 model's improvement during training, we have included a callback which
-generates abstract completions for 5 papers published by the 
-hepthLlama creators. 
+generates abstract completions for 5 papers published by the
+hepthLlama creators.
 
-
-
-
-
-# Quickstart
+## Setup Instructions
 
 ---
 
-You will need access to at least one Nvidia GPU with a reasonable amount of RAM.
-We have used both QMUL's Apocrita HPC cluster (https://docs.hpc.qmul.ac.uk) and
-the Sulis cluster (https://sulis-hpc.github.io), both of which have A100 GPUs 
-with 40Gb of RAM.
+1. Setup necessary accounts & hardware:
 
-The following packages are needed (the pip/conda install names are listed):
+   Create a [Hugging Face account](https://huggingface.co/join) to access gated LLMs, private models, and datasets.
+   A [Weights & Biases (W&B) account](https://wandb.ai/site) is also recommended for training.
 
-- transformers
-- torch
-- wandb
-- huggingface_hub
-- peft
-- flash-attn
-- datasets
-- bitsandbytes
-- accelerate
-- hydra-core
-- python-dotenv
+   Both training and inference are compute-intensive, so ensure access to an Nvidia GPU with sufficient VRAM.
+   We recommend hardware like the Ampere family GPUs with at least 40GB RAM, such as those available on
+   the Sulis cluster ([https://sulis-hpc.github.io](https://sulis-hpc.github.io)).
 
-See `/apocrita/create_env.sh` and `/sulis/llmenvcr.slurm` as examples of
-creating environments with the necessary installs.
+2. Clone the repository:
 
-After creating your environment you will need to copy the file `.env_example`
-and rename it to `.env`. Then paste your private Hugging Face and 
-Weights & Biases API keys into the renamed file. Several of the models hosted 
-on Hugging Face are gated and require access to be granted before use.
+   To clone the repository into an existing directory called `repos`, use the following commands:
+   ```shell
+   cd ~/repos
+   git clone https://github.com/Paul-Richmond/hepthLlama.git
+   ```
+   Alternatively, use SSH:
+   ```shell
+   cd ~/repos
+   git clone git@github.com:Paul-Richmond/hepthLlama.git
+   ```
 
-The training script is found in `src/finetune.py`. A default 
-configuration is set but each time the script is executed a `run_name`
-must be specified. This is done using hydra's override syntax e.g.
-to set `run_name` to `"run1"` you would use
+3. Create the environment:
+
+   Use the provided script on Sulis to set up a new virtual environment named `vllm_take2`
+   and install the packages listed in `vllm3_freeze.txt`.
+
+   Execute the script by logging into Sulis and running the following command:
+   ```shell
+   sbatch /repos/hepthLlama/sulis/llmenv.slurm
+   ```
+
+4. Add API keys using a `.env` file:
+
+    - Create a `.env` file in the project root:
+        ```bash
+        touch .env
+        ```
+    - Add your API keys to the `.env` file with the following format:
+
+        ```
+        HUGGINGFACE_API_KEY=your_hf_api_key_here
+        WANDB_API_KEY=your_wb_api_key_here
+        ```
+
+      > 💡 Avoid wrapping values in quotes unless special characters require escaping.
+
+## Quickstart
+
+---
+
+The main scripts are
+
+- `src/finetune.py`: the script for fine-tuning a pre-trained base LLM
+- `src/infer_hf.py`: the script for running inference on a base or fine-tuned LLM
+
+Scripts used for evaluation are
+
+- `src/get_perplexity.py`: 
+- `src/score.py`:
+- `src/sem_score.py`:
+- `src/jina_score.py`:
+
+Some example shell scripts are found in `sulis/`.
+
+
+## Model fine-tuning and inference
+
+---
+
+This codebase implements a fine-tuning and inference system for open-weight large language models and uses 
+[Hydra](https://hydra.cc) for configuration management, allowing for modular and flexible experiment setup.
+
+### 1. Core Architecture
+
+The system follows a modular architecture where:
+
+1. Configuration is managed through Hydra's hierarchical YAML files
+2. Model training is orchestrated via the `finetune.py` script
+3. Inference is performed through the `infer_hf.py` script
+4. Utility functions handle data loading, model instantiation, and optimization
+
+### 2. Hydra Configuration System
+
+Hydra is central to this codebase's design, providing a powerful way to configure and
+parameterize training and inference runs:
+
+#### Configuration Structure
+
+The configuration files are organized in a hierarchical directory structure:
+
+```
+configs/
+├── default.yaml             # Main entry point for training
+├── default_infer.yaml       # Main entry point for inference
+├── callbacks/
+│   └── callbacks.yaml       # Custom callbacks
+│   └── none.yaml            # Empty file to turn off custom callbacks
+├── dataset/
+│   └── full.yaml            # Dataset configuration
+│   └── small.yaml           # Use first 10% of dataset
+├── inference/
+│   └── infer.yaml           # Inference parameters
+├── model/
+│   └── model.yaml           # Model, quantization and LoRA configurations
+├── optimizer/
+│   └── adamw.yaml           # AdamW optimizer configuration
+├── tokenizer/
+│   └── tokenizer.yaml       # Tokenizer configuration
+└── training/
+    └── training_args.yaml   # Training parameters
+```
+
+- `configs/default.yaml`: The entry point configuration for training that composes other config modules
+- `configs/default_infer.yaml`: The entry point configuration for inference that composes other config modules
+- Specialized configuration modules organized by function:
+    - `dataset/`: Dataset configurations like SemEval
+    - `model/`: Model architecture settings (using Llama-2-7b-chat)
+    - `optimizer/`: Optimizer configurations (AdamW settings)
+    - `training/`: Training parameters (epochs, evaluation strategy, etc.)
+    - `inference/`: Inference settings for model generation
+
+#### How Hydra Works in This Codebase
+
+1. **Configuration Composition**: The `@hydra.main` decorator in both `finetune.py` and `infer_hf.py` loads
+   configurations from multiple YAML files, merging them into a unified `DictConfig` object.
+
+2. **Default Configuration**: `configs/default.yaml` specifies which configuration modules to include by default
+   through its `defaults` list:
+   ```yaml
+   defaults:
+     - optimizer: adamw
+     - dataset: full
+     - model: model
+     - tokenizer: tokenizer
+     - training: training_args
+     - callbacks: callbacks
+     - _self_
+   ```
+
+   Similarly, `configs/default_infer.yaml` includes inference-specific configurations:
+   ```yaml
+   defaults:
+     - dataset: semeval
+     - inference: infer_hf
+     - _self_
+   ```
+
+3. **Configuration Resolution**: Hydra resolves references between config files (using the `${...}` syntax)
+
+4. **Run Directory Management**: Hydra automatically creates output directories for each run with timestamps:
+   ```yaml
+   hydra:
+     run:
+       dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${training.training_args_cfg.run_name}
+   ```
+
+5. **Instantiating Objects**: Hydra provides hydra.utils.instantiate() for instantiating objects. The config passed to
+   this function must have a key called `_target_`, with the value of a fully qualified class name.
+
+### 3. How to use Hydra overrides (see )
+
+Overrides can be checked by executing:
 
 ```bash
-python3 src/finetune.py training.training_args_cfg.run_name=run1
+python src/print_hydra_cfg.py --cfg job --resolve --config-name [config_name] [overrides]
 ```
 
-# Setting a training configuration
+Replace `[config_name]` with either `default` or `default_infer` and `[overrides]` with your desired 
+configuration overrides. This command will print the entire resulting
+configuration to the terminal, allowing you to verify and debug the settings.
 
----
+#### Basic Syntax
 
-The pipeline is designed to be flexible and allow for different 
-models, tokenizers, datasets, optimizers and training hyperparameters
-as well as custom trainers and callbacks.
+The basic syntax for overriding a configuration value is:
 
-A lot of this flexibility is enabled by using the [hydra package](https://hydra.cc)
-whose key feature is
-> the ability to dynamically create a hierarchical configuration
-> by composition and override it through config files and the command line.
-
-For example to change the model and tokenizer to be `gemma-2-9b` rather than 
-the current default `Llama-3.1-8B` we would run
 ```bash
-python3 src/finetune.py model.model_cfg.name=google/gemma-2-9b \
-                        tokenizer.name=google/gemma-2-9b \
-                        training.training_args_cfg.run_name=gemma2
+python script.py config_group.config_name.param=value
 ```
 
-# Recommencing training from a checkpoint
+Hydra provides several special operators:
 
----
+- `~` - Remove a configuration value (e.g.: `~dataset.splits.train=train`)
+- `+` - Append a config value
+- `++` - Append or override a config value
 
-If training is cut short it can be restarted from a saved checkpoint. 
-To enable this, the parameter `resume_from_checkpoint` in 
-`configs/training/training_args.yaml` should be set to `true` or to 
-a local path of a saved checkpoint (for full details, see the documentation for 
-`Trainer.train` [here](https://huggingface.co/docs/transformers/main_classes/trainer)).
-However, if you want the W&B logging to continue from where it left off, 
-you have to in addition modify the `.env` file by adding 
+#### Common Override Patterns
 
-```env
-WANDB_RESUME="must"
-WANDB_RUN_ID=<run ID>
-```
+- Override Simple Values
 
-as suggested [here](https://github.com/huggingface/transformers/issues/25032).
-The W&B documentation on resuming runs can be found at this 
-[link](https://docs.wandb.ai/guides/runs/resuming).
-
-# A W&B hack
-
----
-
-Unfortunately W&B does not allow for continuous updating of tables during training
-which seems to be an oversight given the recent incredible uptake of generative AI.
-
-One way to overcome this is to regularly log a new table using the same key
-and then combine the tables in the W&B UI. 
-
-This can be achieved as follows:
-In a W&B run workspace go to the Tables panels and click on "Add panel",
-choosing "Query panel" from the dropdown which appears. Then paste
-```
-runs[0].loggedArtifactVersions.map((row, index) => row.file("predictions.table.json"))
-```
-and hit enter. This will automatically concatenate the tables so that the LLM's generated output 
-can be qualitatively assessed by subject experts.
-
-# Inference
-
----
-
-The script to run inference on a trained model is `src/inference.py`.
-The code is designed to take abstracts, form prompts by truncating each abstract,
-and then use the model's `generate` method to complete the prompts. 
-The finished completions are logged to W&B as a table.
-Running the inference script requires a single dataset of abstracts 
-and a configuration file.
-The defaults used are set in `configs/default_infer.yaml` 
-and are currentlly `configs/dataset/full.yaml` and 
-`configs/inference/infer.yaml`. 
-
-Since we only need to complete abstracts in the test dataset we can use 
-the following hydra override to remove the train dataset split;
-
-`~dataset.splits.train=train`
-
-The configuration file specifies the model, quantization setup, 
-generation configuration passed to the model's `generate` method
-and the batch size. You can also specify the parameter `wandb_runpath`,
-which is where the table of completed abstracts gets logged. 
-`wandb_runpath` can be an existing W&B run, say the run associated 
-with training the model used for inference.
-
-The following is an example of running the inference script:
 ```bash
-python3 src/inference.py ~dataset.splits.train=train inference.wandb_runpath=llms-for-hepth/huggingface/llama3.1-8B
+python3 finetune.py dataset.name=LLMsForHepth/hep-ph_gr-qc_primary
 ```
 
+- Override Nested Configurations
+
+```bash
+python3 finetune.py training.training_args_cfg.run_name=lastest_run
+```
+
+- Override Lists/Dictionaries
+
+```bash
+python3 finetune.py model.lora_cfg.target_modules='[q_proj, k_proj, v_proj]'
+```
+
+- Change Entire Configuration Files
+
+```bash
+python3 finetune.py dataset=small
+```
+
+- Multiple Overrides
+
+```bash
+python3 finetune.py model.model_cfg.name=meta-llama/Llama-2-7b-hf \
+tokenizer.name=meta-llama/Llama-2-7b-hf \
+training.training_args_cfg.run_name=Llama-2-7b_ft \
+model.lora_cfg.target_modules='[q_proj, k_proj, v_proj]' \
+training.training_args_cfg.num_train_epochs=5
+```
+
+### 4. Setting a training configuration
+
+---
+
+The file `sulis/finetune.slurm` contains an example shell script that demonstrates how to fine-tune Meta's LLama 3.1 8B
+model using a dataset named `LLMsForHepth/hep-ph_gr-qc_primary`, with only the `q_proj`, `k_proj`, and `v_proj` layers
+unfrozen.
+
+A key requirement is specifying a `run_name` parameter in the `training_args` YAML configuration. 
+This `run_name` is used for tracking in Weights & Biases (W&B) and, through Hydra's resolution, determines 
+the Hugging Face upload repository name.
+
+To start fine-tuning, run the following command:
+
+```bash
+python3 src/finetune.py training.training_args_cfg.run_name=my_run_name [other_overrides]
+```
+
+Alternatively, you can create new YAML files in the appropriate `configs` subdirectories to 
+override entire configuration settings and customize the setup as needed.
+
+### 5. Recommencing Training from a Checkpoint
+
+---
+
+If training is interrupted, it can be resumed from a saved checkpoint. To do this, set the `resume_from_checkpoint`
+parameter in `configs/training/training_args.yaml` to `true` or provide the local path to the saved checkpoint (see the
+`Trainer.train` documentation [here](https://huggingface.co/docs/transformers/main_classes/trainer) for more details).
+This can also be achieved by adding Hydra overrides in the launch script:
+
+```bash
+training.resume_from_checkpoint=true \
+training.training_args_cfg.eval_on_start=false
+```
+
+To continue logging on Weights & Biases (W&B), add the following lines to your shell script:
+
+```bash
+export WANDB_RESUME=allow
+export WANDB_RUN_ID=your_wandb_run_id
+```
+
+Here, `your_wandb_run_id` can be found on the Overview pane of the W&B run page, as shown below:
+![run_path](run_path.png) **Note:** Only the final part of the path is required.
+
+See `sulis/finetune.slurm` for an example implementation. For further details on resuming W&B runs, refer to
+the [official documentation](https://docs.wandb.ai/guides/runs/resuming).
+
+## Inference
+
+---
+
+The inference script, `src/infer_hf.py`, is used to generate completions for abstracts in a dataset. The process
+involves truncating each abstract to form prompts, which are then passed to the model's `generate` method. The resulting
+completions are added back to the dataset and uploaded to Hugging Face.
+
+To run the script, you’ll need a dataset of abstracts and a configuration file. Default configuration files are provided
+at `configs/default_infer.yaml`, `configs/dataset/full.yaml`, and `configs/inference/infer.yaml`.
+
+As only the test dataset split is needed for inference, use the following Hydra override to exclude the training
+split:
+
+```bash
+~dataset.splits.train=train
+```
+
+The configuration file defines key parameters such as the model name, generation settings (passed to
+the model's `generate` method), and the repository name for the appended dataset.
+
+Here is an example command to run the inference script:
+
+```bash
+python3 src/inference.py ~dataset.splits.train=train \
+                         inference.model_name=LLMsForHepth/s1-L-3.1-8B-base
+```
+
+## Evaluation
+
+---
+
+blah

@@ -16,6 +16,7 @@ module load GCC/12.2.0 CUDA/12.2.0 Python/3.10.8
 source ~/vllm_take2/bin/activate
 
 # Uncomment to allow wandb tracking from last saved checkpoint
+# See README.md for how to find value for WANDB_RUN_ID
 #export WANDB_RESUME=allow
 #export WANDB_RUN_ID=
 
@@ -26,6 +27,7 @@ srun -n 1 -G 3 python3 finetune.py training.training_args_cfg.run_name=s2-L-3.1-
 dataset.name=LLMsForHepth/hep-ph_gr-qc_primary \
 model.lora_cfg.target_modules='[k_proj, q_proj, v_proj]'
 
+# ---------- Resume finetuning from saved checkpoint ----------
 #srun -n 1 -G 3 python3 finetune.py training.training_args_cfg.run_name=s2-L-3.1-8B-qkv \
 #dataset.name=LLMsForHepth/hep-ph_gr-qc_primary \
 #model.lora_cfg.target_modules='[k_proj, q_proj, v_proj]' \

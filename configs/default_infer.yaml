@@ -1,10 +1,12 @@
+# Default configurations which control inference
 defaults:
-  - dataset: full
-  - inference: infer_hf
-  - _self_
+  - dataset: full         # Specifies the dataset to be used
+  - inference: infer_hf   # Specifies the inference configuration
+  - _self_                # Ensures defaults are resolved in this file context
 
+# Hydra configurations
 hydra:
   run:
-    dir: hydra_outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: hydra_outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}  # Output directory with timestamp formatting
   job:
-    chdir: false
+    chdir: false  # Prevent changing the working directory

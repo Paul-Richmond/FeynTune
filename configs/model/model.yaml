@@ -1,27 +1,32 @@
+# Base model configuration for AutoModelForCausalLM.from_pretrained()
 model_cfg:
-  name: meta-llama/Meta-Llama-3.1-8B
-  device_map: auto
-  trust_remote_code: true
-  attn_implementation: flash_attention_2
+  name: meta-llama/Meta-Llama-3.1-8B     # Repository of the base model being fine-tuned
+  device_map: auto                       # Automatically map model layers to devices
+  trust_remote_code: true                # Allow running custom code from the model repository
+  attn_implementation: flash_attention_2 # Type of attention mechanism to be used
 
+# Bitsandbytes quantization configuration
+# Refer to Hugging Face documentation for details: https://huggingface.co/docs/transformers/main/en/main_classes/quantization#transformers.BitsAndBytesConfig
 bnb_cfg:
-  bnb_4bit_compute_dtype: bfloat16
-  bnb_4bit_quant_storage: null
-  bnb_4bit_quant_type: nf4
-  bnb_4bit_use_double_quant: true
-  load_in_4bit: true
+  bnb_4bit_compute_dtype: bfloat16       # Data type used for computation in 4-bit mode
+  bnb_4bit_quant_storage: null           # Quantization storage format (set to null for default)
+  bnb_4bit_quant_type: nf4               # Quantization type (nf4: Normal Float 4-bit)
+  bnb_4bit_use_double_quant: true        # Enable double quantization for better precision
+  load_in_4bit: true                     # Load model in 4-bit precision to save memory
 
+# Peft (Parameter Efficient Fine-Tuning) LoRA configuration
+# Refer to Hugging Face documentation for details: https://huggingface.co/docs/peft/main/en/package_reference/lora
 lora_cfg:
-  bias: none
-  lora_alpha: 32
-  lora_dropout: 0.05
-  r: 8
-  target_modules: # choice taken from https://huggingface.co/blog/mlabonne/orpo-llama-3
-    - up_proj
-    - down_proj
-    - gate_proj
-    - k_proj
-    - q_proj
-    - v_proj
-    - o_proj
-  task_type: CAUSAL_LM
+  bias: none                             # Type of bias to use (none means no bias adjustment)
+  lora_alpha: 32                         # Scaling factor for LoRA updates
+  lora_dropout: 0.05                     # Dropout rate to apply on LoRA layers
+  r: 8                                   # Rank of the LoRA decomposition
+  target_modules:                        # List of model modules to apply LoRA updates
+    - up_proj                            # Linear layer for up projection
+    - down_proj                          # Linear layer for down projection
+    - gate_proj                          # Gating mechanism projection layer
+    - k_proj                             # Key projection layer for attention mechanism
+    - q_proj                             # Query projection layer for attention mechanism
+    - v_proj                             # Value projection layer for attention mechanism
+    - o_proj                             # Output projection layer for attention mechanism
+  task_type: CAUSAL_LM                   # Task type for the fine-tuning (Causal Language Model)

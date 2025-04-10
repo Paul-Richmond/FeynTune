@@ -22,5 +22,6 @@ source ~/vllm_take2/bin/activate
 cd ~/repos/hepthLlama/src/
 
 # ---------- Get perplexities for ground truth abstracts ----------
-srun python3 get_perplexity.py 'LLMsForHepth/hep-th_primary' -a s1 s2 s3 s4 s5 s6
-#srun python3 get_perplexity.py 'LLMsForHepth/hep-th_perplexities' -a s7 s8 s9 s10 -nb
+srun python3 get_perplexity.py 'LLMsForHepth/hep-th_primary' -a s1 s2 s3 s4 s5 s6 s7 s8 s9 s10
+
+srun python3 get_perplexity.py 'LLMsForHepth/hep-th_perplexities' -a s1_qkv s2_qkv s3_qkv s4_qkv s5_qkv s6_qkv s7_qkv s8_qkv s9_qkv s10_qkv -nb

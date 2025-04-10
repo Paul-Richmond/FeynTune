@@ -1,9 +1,13 @@
+# Repository of the language model to be used for inference
 model_name: meta-llama/Meta-Llama-3.1-8B
 
+# Configuration parameters for text generation using the model's generate method
+# Refer to Hugging Face documentation for details: https://huggingface.co/docs/transformers/main/en/main_classes/text_generation
 generation_cfg:
-  max_new_tokens: 1024
-  min_new_tokens: 1
-  temperature: 0.7
-  do_sample: true
+  max_new_tokens: 1024  # The maximum number of tokens the model should generate in each inference process
+  min_new_tokens: 1     # The minimum number of tokens the model must generate in each inference process
+  temperature: 0.7      # Controls the randomness of token generation; lower values make outputs more deterministic
+  do_sample: true       # Enables sampling-based generation, allowing for more diverse outputs
 
+# Repository identifier where dataset with additional inference-specific columns uploads to
 repo_name: LLMsForHepth/infer_hep_th

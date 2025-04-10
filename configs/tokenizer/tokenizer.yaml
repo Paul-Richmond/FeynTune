@@ -1,4 +1,8 @@
+# Name of the tokenizer to pass to AutoTokenizer.from_pretrained()
 name: meta-llama/Meta-Llama-3.1-8B
+
+# Padding and truncation arguments used when tokenizing data
+# Refer to Hugging Face documentation for details: https://huggingface.co/docs/transformers/main/en/pad_truncation#padding-and-truncation
 tokenizer_args:
-  padding: do_not_pad
-  truncation: do_not_truncate
+  padding: do_not_pad              # Specify if padding should be applied
+  truncation: do_not_truncate      # Specify if truncation should be applied

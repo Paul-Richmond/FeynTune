@@ -1,3 +1,9 @@
+"""
+processing.py - This module contains functions for processing and manipulating text data,
+particularly focused on splitting abstracts into prompt/ground truth pairs
+for text generation or completion tasks. The module provides functionality
+for intelligently dividing text based on sentence or word boundaries.
+"""
 import re
 
 

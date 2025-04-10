@@ -1,14 +1,16 @@
+# Default configurations which control training
 defaults:
-  - optimizer: adamw
-  - dataset: full
-  - model: model
-  - tokenizer: tokenizer
-  - training: training_args
-  - callbacks: callbacks
-  - _self_
+  - optimizer: adamw          # Default optimizer being used
+  - dataset: full             # Dataset to use for training and evaluation
+  - model: model              # Base model and Peft configurations
+  - tokenizer: tokenizer      # Default tokenizer with padding & truncation
+  - training: training_args   # Training arguments/configuration
+  - callbacks: callbacks      # Default callbacks
+  - _self_                    # Ensures defaults are resolved in this file context
 
+# Hydra configurations
 hydra:
   run:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${training.training_args_cfg.run_name}
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}-${training.training_args_cfg.run_name} # Output directory with timestamp formatting
   job:
-    chdir: false
+    chdir: false  # Prevent changing the working directory

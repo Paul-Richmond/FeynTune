@@ -1,3 +1,11 @@
+"""
+print_hydra_cfg.py - A helper script for printing hydra configuration
+
+Helps with checking correct overrides are being used by printing the whole
+DictConfig as YAML.
+"""
+
+
 import hydra
 from omegaconf import DictConfig, OmegaConf
 

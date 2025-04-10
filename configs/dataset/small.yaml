@@ -1,5 +1,10 @@
-name: LLMsForHepth/arxiv_hepth_first
+# Define the dataset repository to be used
+name: LLMsForHepth/hep-th_primary
+
+# Specify the splits within the dataset
 splits:
-  train: train[:10%]
-  test: test[:10%]
-column_to_tokenize: abstract
+  train: train  # take first 10% of the dataset to use for training
+  test: test    # take first 10% of the dataset to use for testing
+
+# Dataset column selection for processing
+column_to_tokenize: abstract  # The specific dataset column to use as input for fine-tuning or inference

@@ -1,3 +1,15 @@
+"""
+io.py - Data I/O Utilities Module
+
+This module provides utility functions for handling data input/output operations,
+including JSON file reading and writing, as well as Hugging Face dataset management.
+It contains functions for:
+- Saving Python dictionaries to JSON files
+- Loading JSON files into Python dictionaries
+- Splitting Hugging Face datasets into batches
+- Loading dataset splits based on configuration
+"""
+
 import json
 import logging
 import os

@@ -1,5 +1,10 @@
+# The optimizer class to be instantiated by Hydra in ./src/utils/instantiators.py
 _target_: torch.optim.AdamW
-betas: [0.9, 0.95]
-eps: 1.0e-05
-lr: 0.0003
-weight_decay: 0.1
+
+# Optimizer configuration for AdamW
+# see https://pytorch.org/docs/stable/generated/torch.optim.AdamW.html
+# for detailed information on all available parameters
+betas: [0.9, 0.95]  # coefficients used for computing running averages of gradient and its square
+eps: 1.0e-05        # term added to the denominator to improve numerical stability
+lr: 0.0003          # learning rate
+weight_decay: 0.1   # weight decay coefficient

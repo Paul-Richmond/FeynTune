@@ -1,32 +1,54 @@
 trainer_cfg:
-  _target_: transformers.Trainer
-  _partial_: true
+  # The trainer class to be instantiated by Hydra in ./src/utils/instantiators.py
+  _target_: transformers.Trainer  # Specifies the trainer class to be used
+  _partial_: true  # DO NOT CHANGE - Ensures that the configuration is treated as a partial function
+
 training_args_cfg:
-  _target_: transformers.TrainingArguments
-  num_train_epochs: 4
+  # The training arguments class to be instantiated by Hydra in ./src/utils/instantiators.py
+  _target_: transformers.TrainingArguments  # Specifies the configuration class for the training arguments
+
+  # The parameters to be used in the training arguments class.
+  # For a full list of parameters, refer to:
+  # https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments
+  num_train_epochs: 4  # Number of training epochs
   #max_steps: 100 #uncomment and change value to override num_train_epochs
-  eval_strategy: steps
+  eval_strategy: steps  # Strategy to evaluate model performance during training
   #If eval_steps smaller than 1, will be interpreted as ratio of total training steps.
   eval_steps: 0.111 #= 1/9, i.e. evaluate 9 times over all epochs
-  eval_on_start: true # also evaluate at the start of training so will evaluate 10=1+9 times in total
-  save_strategy: steps
+  eval_on_start: true # Evaluate the model at the start of training as well (10 evaluations in total: 1+9)
+
+  save_strategy: steps  # Strategy to save model checkpoints during training
   #If save_steps smaller than 1, will be interpreted as ratio of total training steps.
   save_steps: 0.111 #= 1/9, i.e. save 9 times over all epochs
-  log_level: info
-  logging_steps: 1
-  max_grad_norm: 1.0  # bug in Transformers.trainer means unclipped grad_norm value is logged to wandb
-  per_device_train_batch_size: 16
-  per_device_eval_batch_size: 16
-  bf16: true
-  output_dir: LLMsForHepth/${training.training_args_cfg.run_name}
-  report_to: wandb
-  run_name: ???
-  push_to_hub: true
-  hub_model_id: LLMsForHepth/${training.training_args_cfg.run_name}
-  hub_private_repo: true
-  hub_strategy: checkpoint # the latest checkpoint is also pushed in a subfolder named last-checkpoint
-  lr_scheduler_type: cosine_with_min_lr
-  warmup_ratio: 0.1
+
+  log_level: info   # Logging verbosity level
+  logging_steps: 1  # Log every step (frequency of logging)
+
+  max_grad_norm: 1.0  # Max gradient norm for gradient clipping (helps stabilize training). Bug in Transformers.trainer means unclipped grad_norm value is logged to wandb
+
+  per_device_train_batch_size: 16   # Training batch size per device
+  per_device_eval_batch_size: 16    # Evaluation batch size per device
+
+  bf16: true  # Use bfloat16
+
+  output_dir: LLMsForHepth/${training.training_args_cfg.run_name}  # Output directory for trained model and logs
+
+  report_to: wandb  # Integration with Weights & Biases for experiment tracking
+
+  run_name: ???  # Run name for tracking in Weights & Biases.
+  # run_name must be specified as hydra override, e.g. training_args.training_args_cfg.run_name="MyRunName"
+
+  push_to_hub: true  # Push the trained model to Hugging Face Model Hub
+  hub_model_id: LLMsForHepth/${training.training_args_cfg.run_name}  # ID of the model on the Hugging Face Hub
+  # hub_model_id get sets using the specified run_name
+  hub_private_repo: true  # Create a private repository on the Hugging Face Hub
+  hub_strategy: checkpoint # Push strategy: latest and checkpoint versions are pushed
+
+  lr_scheduler_type: cosine_with_min_lr  # Type of learning rate scheduler
+  warmup_ratio: 0.1  # Fraction of training steps for learning rate warm-up
+  # Optional parameters for scheduler
   lr_scheduler_kwargs:
     min_lr_rate: 0.01
-resume_from_checkpoint: null # (str, bool or null), if not null .env file must have WANDB_RESUME & WANDB_RUN_ID set
+
+resume_from_checkpoint: null # (str, bool or null).
+  # 'null' to start fresh, 'true' to resume from HF repo, otherwise specify path to resume training from a local checkpoint
