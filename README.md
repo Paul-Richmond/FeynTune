@@ -79,19 +79,18 @@ The main scripts are
 
 Scripts used for evaluation are
 
-- `src/get_perplexity.py`: 
+- `src/get_perplexity.py`:
 - `src/score.py`:
 - `src/sem_score.py`:
 - `src/jina_score.py`:
 
 Some example shell scripts are found in `sulis/`.
 
-
 ## Model fine-tuning and inference
 
 ---
 
-This codebase implements a fine-tuning and inference system for open-weight large language models and uses 
+This codebase implements a fine-tuning and inference system for open-weight large language models and uses
 [Hydra](https://hydra.cc) for configuration management, allowing for modular and flexible experiment setup.
 
 ### 1. Core Architecture
@@ -189,7 +188,7 @@ Overrides can be checked by executing:
 python src/print_hydra_cfg.py --cfg job --resolve --config-name [config_name] [overrides]
 ```
 
-Replace `[config_name]` with either `default` or `default_infer` and `[overrides]` with your desired 
+Replace `[config_name]` with either `default` or `default_infer` and `[overrides]` with your desired
 configuration overrides. This command will print the entire resulting
 configuration to the terminal, allowing you to verify and debug the settings.
 
@@ -251,8 +250,8 @@ The file `sulis/finetune.slurm` contains an example shell script that demonstrat
 model using a dataset named `LLMsForHepth/hep-ph_gr-qc_primary`, with only the `q_proj`, `k_proj`, and `v_proj` layers
 unfrozen.
 
-A key requirement is specifying a `run_name` parameter in the `training_args` YAML configuration. 
-This `run_name` is used for tracking in Weights & Biases (W&B) and, through Hydra's resolution, determines 
+A key requirement is specifying a `run_name` parameter in the `training_args` YAML configuration.
+This `run_name` is used for tracking in Weights & Biases (W&B) and, through Hydra's resolution, determines
 the Hugging Face upload repository name.
 
 To start fine-tuning, run the following command:
@@ -261,7 +260,7 @@ To start fine-tuning, run the following command:
 python3 src/finetune.py training.training_args_cfg.run_name=my_run_name [other_overrides]
 ```
 
-Alternatively, you can create new YAML files in the appropriate `configs` subdirectories to 
+Alternatively, you can create new YAML files in the appropriate `configs` subdirectories to
 override entire configuration settings and customize the setup as needed.
 
 ### 5. Recommencing Training from a Checkpoint
@@ -291,7 +290,7 @@ Here, `your_wandb_run_id` can be found on the Overview pane of the W&B run page,
 See `sulis/finetune.slurm` for an example implementation. For further details on resuming W&B runs, refer to
 the [official documentation](https://docs.wandb.ai/guides/runs/resuming).
 
-## Inference
+### 6. Setting an inference configuration
 
 ---
 
@@ -323,4 +322,77 @@ python3 src/inference.py ~dataset.splits.train=train \
 
 ---
 
-blah
+### Perplexities
+
+The script `src/get_perplexitites.py` calculates the individual
+perplexity of sequences. It accepts the following command-line arguments:
+
+| Argument       | Flag               | Type            | Default      | Description                                                          |
+|----------------|--------------------|-----------------|--------------|----------------------------------------------------------------------|
+| `dataset_repo` | (positional)       | string          | Required     | Hugging Face dataset repository                                      |
+| `adapters`     | `-a, --adapters`   | list of strings | None         | Optional adapters to use (e.g., `llama`, `s1-s10`, `s1_qkv-s10_qkv`) |
+| `column`       | `-c, --column`     | string          | `"abstract"` | Dataset column to tokenize                                           |
+| `batch_size`   | `-b, --batch_size` | integer         | `12`         | Batch size                                                           |
+| `no_base`      | `-nb, --no_base`   | flag            | `False`      | Disable evaluation using the base model in `BASE_MODEL_REPO`         |
+
+The adapter-to-model mapping is defined in the `ADAPTER_TO_REPO` dictionary.
+
+For example:
+
+```bash
+python3 src/get_perplexities.py 'LLMsForHepth/hep-th_perplexities' -a s1_qkv s10_qkv -nb
+```
+
+This command processes the `abstract` column of the test split from the `LLMsForHepth/hep-th_perplexities` dataset
+and computes perplexities using the models `LLMsForHepth/s1-L-3.1-8B-qkv_v2` and `LLMsForHepth/s10-L-3.1-8B-qkv`.
+
+The computed perplexities are added to the dataset and uploaded to Hugging Face at `LLMsForHepth/hep-th_perplexities`.
+To change the upload destination, modify the `UPLOAD_REPO` parameter accordingly.
+
+**Note:** This script does not require running inference beforehand.
+
+### Cosine Similarities
+
+#### Pairwise Cosine Similarity
+
+The pairwise cosine similarity metric is used to measure the similarity between embeddings of sequences within a
+dataset. It calculates the cosine similarity values of all pairs of sequence embeddings, producing a similarity matrix.
+This metric is useful for understanding how closely related sequences are in the embedding space, with a score of `1`
+indicating perfect similarity, `-1` indicating perfect dissimilarity, and `0` indicating no correlation.
+
+The embeddings are generated using the specified model, and the pairwise cosine similarity is computed for all entries
+in the specified dataset column. The resulting similarity matrix is then saved for further analysis.
+
+This metric is computed using the script `src/score.py` and accepts the same command-line arguments as
+`src/get_perplexities.py`.
+
+**Example:**
+
+```bash
+python3 src/score.py 'LLMsForHepth/hep-th_primary' -a s1_qkv s10_qkv -nb
+```
+
+The command above computes the pairwise cosine similarity matrix for the embeddings of the `abstract` column in the
+test split of the `LLMsForHepth/hep-th_primary` dataset, using models specified in the adapter list.
+The matrix of pairwise cosine similarities is saved as a `.pt` file.
+
+**Note:** This script does not require running inference beforehand.
+
+
+#### SemScore
+
+We have implemented the metric described in 2401.17072: "SEMSCORE: Automated Evaluation of Instruction-Tuned LLMs 
+based on Semantic Textual Similarity".
+
+The `sentence-transformers/all-mpnet-base-v2` model is used to compute embeddings for each ground truth and its
+corresponding predicted completion generated during inference. The cosine similarity between these embedding vectors is
+then calculated for each entry in the dataset to quantify the semantic similarity.
+
+The script `src/sem_score.py` processes the test split of the dataset `LLMsForHepth/hep-th_infer`, iterating through
+each 'completion' column created by the `src/infer_hf.py` inference script. It appends new columns with the computed
+semantic similarity scores to the dataset and uploads the updated version to Hugging Face at
+`LLMsForHepth/sem_scores_hep_th`.
+
+**Prerequisite:** Ensure the inference script `src/infer_hf.py` has been run beforehand to generate the required 
+'completion' columns.
+
