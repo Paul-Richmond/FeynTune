@@ -1,4 +1,4 @@
-# hepthLlama
+# FeynTune
 
 ---
 
@@ -15,7 +15,7 @@ but we also evaluate perplexity on forward passes of both the train
 and test datasets. In addition, in order to qualitatively measure the
 model's improvement during training, we have included a callback which
 generates abstract completions for 5 papers published by the
-hepthLlama creators.
+FeynTune creators.
 
 ## Setup Instructions
 
@@ -35,12 +35,12 @@ hepthLlama creators.
    To clone the repository into an existing directory called `repos`, use the following commands:
    ```shell
    cd ~/repos
-   git clone https://github.com/Paul-Richmond/hepthLlama.git
+   git clone https://github.com/Paul-Richmond/FeynTune.git
    ```
    Alternatively, use SSH:
    ```shell
    cd ~/repos
-   git clone git@github.com:Paul-Richmond/hepthLlama.git
+   git clone git@github.com:Paul-Richmond/FeynTune.git
    ```
 
 3. Create the environment:
@@ -50,7 +50,7 @@ hepthLlama creators.
 
    Execute the script by logging into Sulis and running the following command:
    ```shell
-   sbatch /repos/hepthLlama/sulis/llmenv.slurm
+   sbatch /repos/FeynTune/sulis/llmenv.slurm
    ```
 
 4. Add API keys using a `.env` file:
@@ -180,7 +180,7 @@ configs/
 5. **Instantiating Objects**: Hydra provides hydra.utils.instantiate() for instantiating objects. The config passed to
    this function must have a key called `_target_`, with the value of a fully qualified class name.
 
-### 3. How to use Hydra overrides (see )
+### 3. How to use Hydra overrides
 
 Overrides can be checked by executing:
 
