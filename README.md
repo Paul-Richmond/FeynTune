@@ -153,7 +153,7 @@ configs/
    Similarly, `configs/default_infer.yaml` includes inference-specific configurations:
    ```yaml
    defaults:
-     - dataset: semeval
+     - dataset: full
      - inference: infer_hf
      - _self_
    ```
