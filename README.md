@@ -7,16 +7,6 @@ the 🤗 Hugging Face Transformers library. The aim is to
 have a trained model that is able to complete unseen hep-th category arXiv
 abstracts.
 
-Uses 4-bit quantization to load model and LoRA (i.e. QLoRA)
-to unfreeze a small percentage of model weights.
-
-During training, the loss that is optimzed is the usual cross-entropy loss,
-but we also evaluate perplexity on forward passes of both the train
-and test datasets. In addition, in order to qualitatively measure the
-model's improvement during training, we have included a callback which
-generates abstract completions for 5 papers published by the
-FeynTune creators.
-
 ## Setup Instructions
 
 ---
